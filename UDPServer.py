@@ -1,7 +1,7 @@
-# Michael Burton
+# Michael Burton, Jocelyn Frechette, Jesse Hayes-Lewis
 # UDPServer.py
-# Phase 1, EECE 5830, Fall 2023
-# 18 September 2023
+# Phase 2, EECE 5830, Fall 2023
+# 1 October 2023
 
 
 from socket import *
@@ -21,9 +21,10 @@ def input_validation(input_text, option_list):
     return answer
 
 def deliver_data(packet_array, file_name):
-    path = "C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/"
+    #
+    #path = "C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/"
 
-    name_and_path = "C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/" + file_name
+    name_and_path = file_name
     f_write = open(name_and_path, "wb")
 
     for i in packet_array:
