@@ -1,7 +1,7 @@
-# Michael Burton
+# Michael Burton,Jocelyn Frechette, Jesse Haye-Lewis
 # UDPClient.py
-# Phase 1, EECE 5830, Fall 2023
-# 18 September 2023
+# Phase 2, EECE 5830, Fall 2023
+# 1 October 2023
 
 
 from socket import *
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     client = UDPClient(name_receiver, port_receiver)
 
-    packets = Make_Packet("C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/LAND2.BMP", 1024)
+    packets = Make_Packet("LAND2.BMP", 1024)
 
     # packet_length gets the length of the packet array, and converts it to a string
     packet_length = str(len(packets))
