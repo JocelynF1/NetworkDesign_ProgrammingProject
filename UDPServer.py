@@ -5,32 +5,26 @@
 
 
 from socket import *
-import os
+
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
-# input_validation
-# description: Will continually ask for the user to provide input until valid
-# Inputs: string input_text, list of string option_list
-# Output: user input that matches one of the strings in option_list
-def input_validation(input_text, option_list):
-    answer = input(input_text)
-    while answer not in option_list:
-        print("try again")
-        answer = input(input_text)
-    return answer
-
+# deliver_data
+# Input: packet_array: List of the message sections of packets received from the client
+# Input: file_name: string representing the path to the file to write to make the copy
+# Output: writes the data from packet_array to the file location specified
 def deliver_data(packet_array, file_name):
-    #
-    #path = "C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/"
+    # If the .bmp file is not in the same directory as the code, the full path should be prepended to the file name
+    # e.g., path = "C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/",
+    # file_name = path + file_name
 
-    name_and_path = file_name
-    f_write = open(name_and_path, "wb")
+    f_write = open(file_name, "wb")
 
     for i in packet_array:
         f_write.write(i)
 
     f_write.close()
+
 
 class UDPServer:
     # Initializes the UDP Server with name and port
@@ -46,9 +40,12 @@ class UDPServer:
 
     # receive
     # description: receives data from the client
-    # echo it back to client
     # Input: bdata_size, buffer size in bytes
     # Output: Message to Console confirming that the server is ready to receive
+    # Output: test data, such as number of packets received, the list of packets,
+    # and then the length of the list of packets to make sure it matched the number of packets received
+    # Output: received_packets, the list of Bytes objects containing packet messages
+
     def receive(self, bdata_size):
 
         self.socket.bind(('', self.port_receiver))  # bind binds the socket to a particular port to listen on
@@ -74,55 +71,15 @@ class UDPServer:
 
         while message != num_packets_encoded:
             message, client_address = self.socket.recvfrom(bdata_size)
-            modified_message = message  # this is where to specify message modifications using string methods
-            # to send back to the sender
-            # self.socket.sendto(modified_message, client_address)
             received_packets.append(message)
-        received_packets.pop()  # TODO what happens if the number of packets is zero?
+        received_packets.pop()
+
+        # Q: What happens if the number of packets is zero?
+        # A: client only sends one packet, an empty string of bytes (b'')
         print(received_packets)
         print(len(received_packets))
 
         return received_packets
-
-    # Sends message to client, prints response
-    def send(self, bdata_size, message):
-        self.socket.sendto(message, (self.name_receiver, self.port_receiver))
-        # server sends message (converted to Bytes) to client
-
-        modified_message, client_address = self.socket.recvfrom(bdata_size)
-        # server receives the response (Bytes) from client
-
-        # print(modified_message.decode())  # convert message from a bytes object to string, then prints
-        # Won't close socket here in case user wants to send more
-
-    # Selects the mode for the Server, receiving, sending, or closing socket
-    # Relies on user to not put the system in receive-receive mode, where both
-    # client and server set up to receive, which would not be very useful
-    # returns "Continue" for the outer event loop to run this again, "End" otherwise
-    def mode_select(self):
-        yes_no = ["Y", "N"]
-        answer_rx = input_validation("Receive Messages? Y/N: ", yes_no)
-        if answer_rx == "Y":
-            buf_size = int(input("Give a buffer size to receive message (Match the client send buffer size): "))
-            self.receive(buf_size)
-            return "Continue"  # Will never get here since receive puts this program into an infinite loop
-        else:
-            answer_tx = input_validation("Send Messages? (make sure your client is ready to receive) Y/N: ", yes_no)
-            if answer_tx == "Y":
-                buf_size = int(input("Give a buffer size to send message (Match the client receive buffer size): "))
-                message_server = input("Message: ")
-                self.send(buf_size, message_server)
-                return "Continue"
-            else:
-                answer_csocket = input_validation("Close Socket? Y/N: ", yes_no)
-                if answer_csocket == "Y":
-                    print("Server will close socket")
-                    self.socket.close()
-                    return "End"
-                    # Not Specified within requirements for Phase 1, state is explicitly handled
-                else:
-                    print("No options were specified, try again.")
-                    return "Continue"
 
 
 # Run the program from here
@@ -134,16 +91,8 @@ if __name__ == '__main__':
 
     server = UDPServer(name_receiver, port_receiver)
 
-    received_packets = server.receive(1024)
+    # Receives packets from client with a message buffer size on each packet as 2048 Bytes
+    received_packets = server.receive(2048)
 
-    deliver_data(received_packets,"copy.bmp")
-
-
-
-
-    # socket_closed = "Continue"
-   # while socket_closed != "End":
-    #     # Main Event loop for server. Covers the case if the
-    #     # user continually wants to send or idle on the server side.
-    #     # Will not affect receive mode, since that is an infinite loop
-    #     socket_closed = server.mode_select()
+    # "copy.bmp" is where the data from the packets received get written to, location is local to the code directory
+    deliver_data(received_packets, "copy.bmp")
