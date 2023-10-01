@@ -1,4 +1,4 @@
-# Michael Burton, Jocelyn Frechette, Jesse Hayes-Lewis
+# Michael Burton, Jocelyn Frechette, Jesse Haynes-Lewis
 # UDPServer.py
 # Phase 2, EECE 5830, Fall 2023
 # 1 October 2023

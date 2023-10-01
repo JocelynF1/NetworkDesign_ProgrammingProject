@@ -1,4 +1,4 @@
-# Michael Burton,Jocelyn Frechette, Jesse Haye-Lewis
+# Michael Burton,Jocelyn Frechette, Jesse Haynes-Lewis
 # UDPClient.py
 # Phase 2, EECE 5830, Fall 2023
 # 1 October 2023
