@@ -5,9 +5,14 @@
 
 
 from socket import *
-
-
 # documentation link: https://docs.python.org/3/library/socket.html
+
+# states
+S_Wait_for_call_0_from_above = 0
+S_Wait_for_ACK_0 = 1
+S_Wait_for_call_1_from_above = 2
+S_Wait_for_ACK_1 = 3
+
 
 # Make_Packet
 # Input: file_name: string representing the path to the file to read from
@@ -35,6 +40,19 @@ def Make_Packet(file_name, packet_size):
     print("First packet: ", packet_list[0])
     f.close()
     return packet_list
+
+def next_state(state):
+    match state:
+        case S_Wait_for_call_0_from_above:
+            return 1
+        case S_Wait_for_ACK_0:
+            return 1
+        case S_Wait_for_call_1_from_above:
+            return 1
+        case S_Wait_for_ACK_1:
+            return 1
+        case _:
+            return 1
 
 
 class UDPClient:
@@ -83,3 +101,13 @@ if __name__ == '__main__':
 
     # Tell the server we are f
     client.send(packet_length.encode())
+
+    sender_state = 0
+
+    while True:
+        sender_state = next_state(sender_state)
+
+
+
+
+

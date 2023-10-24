@@ -7,6 +7,7 @@
 from socket import *
 
 
+
 # documentation link: https://docs.python.org/3/library/socket.html
 
 # deliver_data
