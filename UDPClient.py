@@ -5,6 +5,7 @@
 
 
 from socket import *
+
 # documentation link: https://docs.python.org/3/library/socket.html
 
 # states
@@ -12,6 +13,13 @@ S_Wait_for_call_0_from_above = 0
 S_Wait_for_ACK_0 = 1
 S_Wait_for_call_1_from_above = 2
 S_Wait_for_ACK_1 = 3
+
+# structure of message from sender:
+# SEQ BIT, 16-bit checksum, N-byte data
+
+ACK = b'1'  # need to define the ack, should be bytes object with ACK and correct sequence number
+SEQ_0 = b'0'
+SEQ_1 = b'1'
 
 
 # Make_Packet
@@ -41,18 +49,17 @@ def Make_Packet(file_name, packet_size):
     f.close()
     return packet_list
 
-def next_state(state):
-    match state:
-        case S_Wait_for_call_0_from_above:
-            return 1
-        case S_Wait_for_ACK_0:
-            return 1
-        case S_Wait_for_call_1_from_above:
-            return 1
-        case S_Wait_for_ACK_1:
-            return 1
-        case _:
-            return 1
+def split_packet(message):
+    pass
+def is_ack(message, expected_seq_num):
+    # First, we must split the message into its parts
+    # Then, we have to confirm that the ACK sequence is what we are expecting
+    pass
+
+def is_corrupt(message):
+    # First, we split the message into its parts
+    # Then, we calculate the checksum of the ACK,
+    pass
 
 
 class UDPClient:
@@ -70,6 +77,31 @@ class UDPClient:
     def send(self, message):
         self.socket.sendto(message, (self.name_receiver, self.port_receiver))
         # client sends message (converted to Bytes) to server
+
+    # receive
+    # input: bdata_size
+    def receive(self, bdata_size):
+        message, server_address = self.socket.recvfrom(bdata_size)
+
+        return message
+
+    def next_state(self, state, message, bdata_size):
+        if state == S_Wait_for_call_0_from_above:
+            # send the packet out
+            self.send(message)
+            return S_Wait_for_ACK_0
+        elif state == S_Wait_for_ACK_0:
+            ack_msg = self.receive(bdata_size)
+            if ack_msg == ACK:
+                return S_Wait_for_call_1_from_above
+            else:
+                return S_Wait_for_ACK_0
+        elif state == S_Wait_for_call_1_from_above:
+            return 1
+        elif state == S_Wait_for_ACK_1:
+            return 1
+        else:
+            return 1
 
 
 # Run the program from here
@@ -104,10 +136,8 @@ if __name__ == '__main__':
 
     sender_state = 0
 
+    message = bytes()
+
+    # In Loop will handle the application layer, in state machine will handle transport layer
     while True:
-        sender_state = next_state(sender_state)
-
-
-
-
-
+        sender_state = client.next_state(sender_state, message, 2048)

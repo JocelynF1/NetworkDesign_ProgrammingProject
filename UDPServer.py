@@ -6,9 +6,15 @@
 
 from socket import *
 
-
-
 # documentation link: https://docs.python.org/3/library/socket.html
+
+# states
+S_Wait_for_0_from_below = 0
+S_Wait_for_1_from_below = 1
+
+# structure of message from receiver:
+# ACK BIT, SEQ BIT, 16-bit checksum, N-byte data
+
 
 # deliver_data
 # Input: packet_array: List of the message sections of packets received from the client
@@ -25,6 +31,11 @@ def deliver_data(packet_array, file_name):
         f_write.write(i)
 
     f_write.close()
+
+
+def is_corrupt(message):
+    # First, we split the message into its parts
+    pass
 
 
 class UDPServer:
@@ -81,6 +92,10 @@ class UDPServer:
         print(len(received_packets))
 
         return received_packets
+
+    def send(self, message):
+        pass
+
 
 
 # Run the program from here
