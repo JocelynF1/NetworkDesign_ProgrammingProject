@@ -5,6 +5,8 @@
 
 
 from socket import *
+import hashlib
+import random
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -13,7 +15,15 @@ S_Wait_for_0_from_below = 0
 S_Wait_for_1_from_below = 1
 
 # structure of message from receiver:
-# ACK BIT, SEQ BIT, 16-bit checksum, N-byte data
+# 16-bit checksum, 8-bit ACK, 8-bit SEQ, N-byte data
+
+CHECKSUM_SIZE = 2
+ACK = 255  # need to define the ack, should be bytes object with ACK and correct sequence number
+SEQ_0 = 0
+SEQ_1 = 255
+ACK_SEQ_SIZE = 2
+
+DATA_OFFSET = ACK_SEQ_SIZE + CHECKSUM_SIZE
 
 
 # deliver_data
@@ -33,14 +43,53 @@ def deliver_data(packet_array, file_name):
     f_write.close()
 
 
-def is_corrupt(message):
+def corrupt_data(data):
+    data_length = len(data)
+    corrupt_data = bytearray()
+    for i in range(data_length):
+        corrupt_data.append((data[i] + random.randint(0, 255)) % 256)
+    return corrupt_data
+
+
+def corrupt_ack(ack, seq):
+    corrupt_ack = (ack + random.randint(0, 255)) % 256
+    corrupt_seq = (seq + random.randint(0, 255)) % 256
+    return corrupt_ack, corrupt_seq
+
+
+def checksum(message):
+    # Will put custom hashing function later, this is temporary for testing purposes
+    h = hashlib.blake2b(digest_size=CHECKSUM_SIZE)
+    h.update(message)
+    return h.digest()
+
+
+def split_packet(message):
+    print(len(message))
+    checksum = message[0:CHECKSUM_SIZE]
+    ack_response = message[CHECKSUM_SIZE]
+    seq_response = message[CHECKSUM_SIZE + 1]
+    data = message[DATA_OFFSET:]
+
+    return checksum, ack_response, seq_response, data
+
+
+def is_ack(ack_received, seq_received, expected_seq_num):
+    # First, we must split the message into its parts
+    # Then, we have to confirm that the ACK sequence is what we are expecting
+    return ack_received == ACK and seq_received == expected_seq_num
+
+
+def is_corrupt(received_checksum, new_checksum):
     # First, we split the message into its parts
-    pass
+    # Then, we calculate the checksum of the ACK,
+    return received_checksum != new_checksum
 
 
 class UDPServer:
     # Initializes the UDP Server with name and port
     def __init__(self, name, port):
+        self.state = S_Wait_for_0_from_below
         self.name_receiver = name
         self.port_receiver = port
         self.socket = socket(AF_INET, SOCK_DGRAM)  # AF_INET = using IPv4, SOCK_DGRAM = Datagram,
@@ -70,7 +119,7 @@ class UDPServer:
 
         message = None
         while message is None:
-            message, client_address = self.socket.recvfrom(bdata_size)
+            message, client_address = self.socket.recvfrom(bdata_size+DATA_OFFSET)
 
         num_packets_encoded = message
 
@@ -93,9 +142,54 @@ class UDPServer:
 
         return received_packets
 
-    def send(self, message):
-        pass
+    def next_state(self, bdata_size):
+        if self.state == S_Wait_for_0_from_below:
+            msg, client_address = self.socket.recvfrom(bdata_size)
+            checksum, ack_response, seq_response, data = split_packet(msg)
+            cs_message = bytearray()
+            cs_message.append(ack_response)
+            cs_message.append(seq_response)
+            cs_message.extend(data)
+            new_checksum = checksum(cs_message)
 
+            ack_msg = bytearray()
+            ack_msg.append(checksum)
+            ack_msg.append(ack_response)
+            if not is_corrupt(checksum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
+                # deliver data
+                # send pos ack
+                ack_msg.append(SEQ_0)
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_1_from_below
+            else:
+                ack_msg.append(SEQ_1)
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_0_from_below
+
+        elif self.state == S_Wait_for_1_from_below:
+            msg, client_address = self.socket.recvfrom(bdata_size)
+            checksum, ack_response, seq_response, data = split_packet(msg)
+            cs_message = bytearray()
+            cs_message.append(ack_response)
+            cs_message.append(seq_response)
+            cs_message.extend(data)
+            new_checksum = checksum(cs_message)
+
+            ack_msg = bytearray()
+            ack_msg.append(checksum)
+            ack_msg.append(ack_response)
+            if not is_corrupt(checksum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
+                # deliver data
+                # send pos ack
+                ack_msg.append(SEQ_1)
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_0_from_below
+            else:
+                ack_msg.append(SEQ_0)
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_1_from_below
+        else:
+            return 10
 
 
 # Run the program from here
@@ -112,3 +206,5 @@ if __name__ == '__main__':
 
     # "copy.bmp" is where the data from the packets received get written to, location is local to the code directory
     deliver_data(received_packets, "copy.bmp")
+
+
