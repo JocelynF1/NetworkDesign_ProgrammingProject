@@ -4,8 +4,12 @@
 # 1 October 2023
 import struct
 from socket import *
+import numpy as np
+import os
+from math import floor
 import hashlib
 import random
+
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -112,7 +116,16 @@ def Make_Packet(file_name, data_size):
     print("First packet: ", packet_list[0])
     f.close()
     return packet_list
-
+def corruptor(byte_object):
+    cor_byte_object = [0]*len(byte_object)
+    #print(len(cor_packet))
+    #Function takes in the packet list and will perform a randomized corruption on a certain percetage of packets
+    for j in range(len(byte_object)):
+        cor_byte_object[j] = ~byte_object[j] & 255
+     #  print("Corrupted Packets: ",bin(~packet[j]&255))
+    #print("corrupt packet")
+    #cor_packet=packet
+    return cor_byte_object
 
 def corrupt_data(data):
     data_length = len(data)
@@ -231,24 +244,56 @@ class UDPClient:
 if __name__ == '__main__':
     name_receiver = '127.0.0.1'  # data via the loopback connector
     port_receiver = int(input("Specify receiver port (should match server)#: "))
+    cor_percent = int(input("Specify level of corruption as a percentage to the nearest whole number: "))
     # # sender port is not specified since OS specifies that, and we do not care what it is
     # # This is the receiver port, so whichever system is designated as a receiver will use this to listen
     #
+    #Add as a command option, but hard coding for now:
+    #cor_percent = 5
 
+    #instantiate the client
     client = UDPClient(name_receiver, port_receiver)
 
-    # Sends packets to the server with a message data size as 2048 Bytes
-    packets = Make_Packet("LAND2.BMP", 2044)
 
-    # Test case for when the file size = 0
-    # packets = Make_Packet("unknown.BMP", 2048)
+    #make packets
+    packets = Make_Packet("Lavender.jpg", 1024)
+
+    #Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
+    #the packet list that will be corrupted
+    num_pack_cor = int(floor(len(packets) * (cor_percent / 100)))
+    cor_ind = np.random.randint(0, len(packets), size=num_pack_cor)
+    cor_ind.sort()
+    
+    print(cor_ind)
+
+    ## packet_length gets the length of the packet array, and converts it to a string
+    #packet_length = str(len(packets))
+
+    # message is converted from a string to a bytes object, and then sent to the server
+    #client.send(packet_length.encode())
+    #i=0
+    #for x in packets:
+    #    if i in cor_ind:
+    #        print("Corrupt Packet",i)
+    #        x=corruptor(x)
+    #        x=bytearray(x)
+    #    client.send(x)
+    #    i = i+1
+    #client.send(packet_length.encode())
+    
 
     packet_index = 0
 
     seq_to_send = SEQ_0
     # In Loop will handle the application layer, in state machine will handle transport layer
     while packet_index < len(packets):
-        sender_state = client.next_state(packets[packet_index], 2048)
+        packet = packets[packet_index]
+        if packet_index in cor_ind:
+          print("Corrupt Packet",packet_index)
+          packet = bytearray(corruptor(packets[packet_index]))
+          cor_ind.pop(0)
+          
+        sender_state = client.next_state(packet, 2048)
         if sender_state == S_Wait_for_call_0_from_above or sender_state == S_Wait_for_call_1_from_above:
             packet_index += 1  # we can advance the index since the packet was sent properly
 
