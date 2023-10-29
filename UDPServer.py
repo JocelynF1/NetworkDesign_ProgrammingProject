@@ -3,126 +3,193 @@
 # Phase 2, EECE 5830, Fall 2023
 # 1 October 2023
 
-
+import struct
 from socket import *
-import os
+import hashlib
+import random
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
-# input_validation
-# description: Will continually ask for the user to provide input until valid
-# Inputs: string input_text, list of string option_list
-# Output: user input that matches one of the strings in option_list
-def input_validation(input_text, option_list):
-    answer = input(input_text)
-    while answer not in option_list:
-        print("try again")
-        answer = input(input_text)
-    return answer
+# states
+S_Wait_for_0_from_below = 0
+S_Wait_for_1_from_below = 1
 
+# structure of message from receiver:
+# 16-bit checksum, 8-bit ACK, 8-bit SEQ, N-byte data
+
+CHECKSUM_SIZE = 2
+ACK = 255  # need to define the ack, should be bytes object with ACK and correct sequence number
+SEQ_0 = 0
+SEQ_1 = 255
+ACK_SEQ_SIZE = 2
+
+#PROPER_CHECKSUM = bytearray(b'\x00\x00')  # temporary value to use until checksum implemented
+
+DATA_OFFSET = ACK_SEQ_SIZE + CHECKSUM_SIZE
+
+
+# deliver_data
+# Input: packet_array: List of the message sections of packets received from the client
+# Input: file_name: string representing the path to the file to write to make the copy
+# Output: writes the data from packet_array to the file location specified
 def deliver_data(packet_array, file_name):
-    #
-    #path = "C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/"
+    # If the .bmp file is not in the same directory as the code, the full path should be prepended to the file name
+    # e.g., path = "C:/Users/Michael Burton/Documents/UML/Fall2023/Network/Project/",
+    # file_name = path + file_name
 
-    name_and_path = file_name
-    f_write = open(name_and_path, "wb")
+    f_write = open(file_name, "wb")
 
     for i in packet_array:
         f_write.write(i)
 
     f_write.close()
 
+
+def corrupt_data(data):
+    data_length = len(data)
+    corrupt_data = bytearray()
+    for i in range(data_length):
+        corrupt_data.append((data[i] + random.randint(0, 255)) % 256)
+    return corrupt_data
+
+
+def corrupt_ack(ack, seq):
+    corrupt_ack = (ack + random.randint(0, 255)) % 256
+    corrupt_seq = (seq + random.randint(0, 255)) % 256
+    return corrupt_ack, corrupt_seq
+
+
+def checksum(message):
+    # Will put custom hashing function later, this is temporary for testing purposes
+    h = hashlib.blake2b(digest_size=CHECKSUM_SIZE)
+    h.update(message)
+    return bytearray.fromhex(h.hexdigest())
+
+
+def split_packet(message):
+    copy_msg = bytearray(message)
+    checksum = copy_msg[0:CHECKSUM_SIZE]
+    ack_response = copy_msg[CHECKSUM_SIZE]
+    seq_response = copy_msg[CHECKSUM_SIZE + 1]
+    data = copy_msg[DATA_OFFSET:]
+
+    return checksum, ack_response, seq_response, data
+
+
+def is_ack(ack_received, seq_received, expected_seq_num):
+    # First, we must split the message into its parts
+    # Then, we have to confirm that the ACK sequence is what we are expecting
+    return ack_received == ACK and seq_received == expected_seq_num
+
+
+def is_corrupt(received_checksum, new_checksum):
+    # First, we split the message into its parts
+    # Then, we calculate the checksum of the ACK,
+    return received_checksum != new_checksum
+
+
 class UDPServer:
     # Initializes the UDP Server with name and port
     def __init__(self, name, port):
+        self.state = S_Wait_for_0_from_below
         self.name_receiver = name
         self.port_receiver = port
         self.socket = socket(AF_INET, SOCK_DGRAM)  # AF_INET = using IPv4, SOCK_DGRAM = Datagram,
         # UDP = User Datagram Protocol
         # Windows socket API: https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-socket
         # By default, the socket object is in blocking mode
-
+        self.data_buffer = []
         print("Server initialized")
 
-    # receive
-    # description: receives data from the client
-    # echo it back to client
-    # Input: bdata_size, buffer size in bytes
-    # Output: Message to Console confirming that the server is ready to receive
-    def receive(self, bdata_size):
-
-        self.socket.bind(('', self.port_receiver))  # bind binds the socket to a particular port to listen on
-        # The argument is a tuple in the form (,) , where the first part of the tuple corresponds to
-        # the host address ('' represents INADDR_ANY, which binds to any local interface)
-        # and the second part is the port to listen on
-        # Linked python socket documentation for this piece near the import statement
-
-        print("Server \"", self.name_receiver, "\" is ready on port \"", self.port_receiver, "\"")
-
-        message = None
-        while message is None:
-            message, client_address = self.socket.recvfrom(bdata_size)
-
-        num_packets_encoded = message
-
-        num_packets = int(message.decode())
-
-        print(num_packets)
-        received_packets = []
-
-        message = bytes()
-
-        while message != num_packets_encoded:
-            message, client_address = self.socket.recvfrom(bdata_size)
-            modified_message = message  # this is where to specify message modifications using string methods
-            # to send back to the sender
-            # self.socket.sendto(modified_message, client_address)
-            received_packets.append(message)
-        received_packets.pop()  # TODO what happens if the number of packets is zero?
-        print(received_packets)
-        print(len(received_packets))
-
-        return received_packets
-
-    # Sends message to client, prints response
-    def send(self, bdata_size, message):
+    def send(self, message):
         self.socket.sendto(message, (self.name_receiver, self.port_receiver))
-        # server sends message (converted to Bytes) to client
+        # client sends message (converted to Bytes) to server
 
-        modified_message, client_address = self.socket.recvfrom(bdata_size)
-        # server receives the response (Bytes) from client
+    # receive
+    # input: bdata_size
+    def receive(self, bdata_size):
+        message, server_address = self.socket.recvfrom(bdata_size)
 
-        # print(modified_message.decode())  # convert message from a bytes object to string, then prints
-        # Won't close socket here in case user wants to send more
+        return message, server_address
 
-    # Selects the mode for the Server, receiving, sending, or closing socket
-    # Relies on user to not put the system in receive-receive mode, where both
-    # client and server set up to receive, which would not be very useful
-    # returns "Continue" for the outer event loop to run this again, "End" otherwise
-    def mode_select(self):
-        yes_no = ["Y", "N"]
-        answer_rx = input_validation("Receive Messages? Y/N: ", yes_no)
-        if answer_rx == "Y":
-            buf_size = int(input("Give a buffer size to receive message (Match the client send buffer size): "))
-            self.receive(buf_size)
-            return "Continue"  # Will never get here since receive puts this program into an infinite loop
-        else:
-            answer_tx = input_validation("Send Messages? (make sure your client is ready to receive) Y/N: ", yes_no)
-            if answer_tx == "Y":
-                buf_size = int(input("Give a buffer size to send message (Match the client receive buffer size): "))
-                message_server = input("Message: ")
-                self.send(buf_size, message_server)
-                return "Continue"
+    def next_state(self, bdata_size):
+        if self.state == S_Wait_for_0_from_below:
+            msg, client_address = self.receive(bdata_size)
+            csum, ack_response, seq_response, data = split_packet(msg)
+
+            cs_message = bytearray()
+            cs_message.append(ack_response)
+            cs_message.append(seq_response)
+            cs_message.extend(data)
+            new_checksum = checksum(cs_message)
+
+            # ack message to send back
+            ack_msg = bytearray()
+
+            # everything except the checksum field is passed to the checksum function
+            ack_cs_msg = bytearray()
+            ack_cs_msg.append(ACK)
+
+            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
+                # deliver data
+                self.data_buffer.append(data)
+                # send pos ack
+                ack_cs_msg.append(SEQ_0)
+                ack_cs = checksum(ack_cs_msg)
+
+                ack_msg.extend(ack_cs)
+                ack_msg.extend(ack_cs_msg)
+
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_1_from_below
             else:
-                answer_csocket = input_validation("Close Socket? Y/N: ", yes_no)
-                if answer_csocket == "Y":
-                    print("Server will close socket")
-                    self.socket.close()
-                    return "End"
-                    # Not Specified within requirements for Phase 1, state is explicitly handled
-                else:
-                    print("No options were specified, try again.")
-                    return "Continue"
+                ack_cs_msg.append(SEQ_1)
+                ack_cs = checksum(ack_cs_msg)
+
+                ack_msg.extend(ack_cs)
+                ack_msg.extend(ack_cs_msg)
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_0_from_below
+
+        elif self.state == S_Wait_for_1_from_below:
+            msg, client_address = self.receive(bdata_size)
+            csum, ack_response, seq_response, data = split_packet(msg)
+
+            cs_message = bytearray()
+            cs_message.append(ack_response)
+            cs_message.append(seq_response)
+            cs_message.extend(data)
+            new_checksum = checksum(cs_message)
+
+            # ack message to send back
+            ack_msg = bytearray()
+
+            # everything except the checksum field is passed to the checksum function
+            ack_cs_msg = bytearray()
+            ack_cs_msg.append(ACK)
+
+            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
+                # deliver data
+                self.data_buffer.append(data)
+                # send pos ack
+                ack_cs_msg.append(SEQ_1)
+                ack_cs = checksum(ack_cs_msg)
+
+                ack_msg.extend(ack_cs)
+                ack_msg.extend(ack_cs_msg)
+
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_0_from_below
+            else:
+                ack_cs_msg.append(SEQ_0)
+                ack_cs = checksum(ack_cs_msg)
+
+                ack_msg.extend(ack_cs)
+                ack_msg.extend(ack_cs_msg)
+                self.socket.sendto(ack_msg, client_address)
+                return S_Wait_for_1_from_below
+        else:
+            return 10  # error
 
 
 # Run the program from here
@@ -133,17 +200,31 @@ if __name__ == '__main__':
     # This is the receiver port, so whichever system is designated as a receiver will use this to listen
 
     server = UDPServer(name_receiver, port_receiver)
+    server.socket.bind(('', server.port_receiver))
 
-    received_packets = server.receive(1024)
+    buffer_size = 2048
+    # Receives packets from client with a message buffer size on each packet as 2048 Bytes
+    receiver_state = server.next_state(buffer_size)
+    server.state = receiver_state
+    while server.state != S_Wait_for_1_from_below: # we must receive the first packet successfully to move on
+        receiver_state = server.next_state(buffer_size)
+        server.state = receiver_state
 
-    deliver_data(received_packets,"copy.bmp")
 
 
+    print("Got Here!")
+    data = server.data_buffer.pop(0)
+    print(data)
+    num_packets = int.from_bytes(data)
 
+    packet_index = 0
 
-    # socket_closed = "Continue"
-   # while socket_closed != "End":
-    #     # Main Event loop for server. Covers the case if the
-    #     # user continually wants to send or idle on the server side.
-    #     # Will not affect receive mode, since that is an infinite loop
-    #     socket_closed = server.mode_select()
+    while packet_index < num_packets:
+        receiver_state = server.next_state(buffer_size)
+        if server.state != receiver_state:
+            packet_index += 1
+
+        server.state = receiver_state
+
+    # "copy.bmp" is where the data from the packets received get written to, location is local to the code directory
+    deliver_data(server.data_buffer, "copy.bmp")
