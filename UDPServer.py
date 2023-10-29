@@ -204,9 +204,13 @@ if __name__ == '__main__':
 
     buffer_size = 2048
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
-
     receiver_state = server.next_state(buffer_size)
     server.state = receiver_state
+    while server.state != S_Wait_for_1_from_below: # we must receive the first packet successfully to move on
+        receiver_state = server.next_state(buffer_size)
+        server.state = receiver_state
+
+
 
     print("Got Here!")
     data = server.data_buffer.pop(0)
