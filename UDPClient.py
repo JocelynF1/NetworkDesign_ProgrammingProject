@@ -83,7 +83,6 @@ def Make_Packet(file_name, data_size):
         packet.append(ACK)
         packet.append(seq_to_send)
         packet.extend(data)
-        print(packet)
         packet_list.append(packet)
 
         if seq_to_send == SEQ_1:
@@ -126,20 +125,6 @@ def corruptor(byte_object):
     #print("corrupt packet")
     #cor_packet=packet
     return cor_byte_object
-
-def corrupt_data(data):
-    data_length = len(data)
-    corrupt_data = bytearray()
-    for i in range(data_length):
-        corrupt_data.append((data[i] + random.randint(0, 255)) % 256)
-    return corrupt_data
-
-
-def corrupt_ack(ack, seq):
-    corrupt_ack = (ack + random.randint(0, 255)) % 256
-    corrupt_seq = (seq + random.randint(0, 255)) % 256
-    return corrupt_ack, corrupt_seq
-
 
 def checksum(message):
     # Will put custom hashing function later, this is temporary for testing purposes
@@ -214,8 +199,6 @@ class UDPClient:
             cs_packet.append(ack_response)
             cs_packet.append(seq_response)
             new_checksum = checksum(cs_packet)
-            print("Inputs to New checksum Client side ACK_0: ", received_msg)
-            print("New checksum Client side ACK_0: ", new_checksum)
             if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
                 return S_Wait_for_call_1_from_above
             else:
@@ -261,38 +244,23 @@ if __name__ == '__main__':
     #Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
     #the packet list that will be corrupted
     num_pack_cor = int(floor(len(packets) * (cor_percent / 100)))
-    cor_ind = np.random.randint(0, len(packets), size=num_pack_cor)
+    # cor_ind = np.random.randint(0, len(packets), size=num_pack_cor)
+    cor_ind = np.random.choice(len(packets), size=num_pack_cor, replace=False,)
     cor_ind.sort()
-    
+
     print(cor_ind)
-
-    ## packet_length gets the length of the packet array, and converts it to a string
-    #packet_length = str(len(packets))
-
-    # message is converted from a string to a bytes object, and then sent to the server
-    #client.send(packet_length.encode())
-    #i=0
-    #for x in packets:
-    #    if i in cor_ind:
-    #        print("Corrupt Packet",i)
-    #        x=corruptor(x)
-    #        x=bytearray(x)
-    #    client.send(x)
-    #    i = i+1
-    #client.send(packet_length.encode())
-    
+    print(len(cor_ind))
 
     packet_index = 0
 
-    seq_to_send = SEQ_0
     # In Loop will handle the application layer, in state machine will handle transport layer
     while packet_index < len(packets):
         packet = packets[packet_index]
         if packet_index in cor_ind:
-          print("Corrupt Packet",packet_index)
-          packet = bytearray(corruptor(packets[packet_index]))
-          cor_ind.pop(0)
-          
+            print("Corrupt Packet", packet_index)
+            packet = bytearray(corruptor(packets[packet_index]))
+            cor_ind = np.delete(cor_ind, 0)
+
         sender_state = client.next_state(packet, 2048)
         if sender_state == S_Wait_for_call_0_from_above or sender_state == S_Wait_for_call_1_from_above:
             packet_index += 1  # we can advance the index since the packet was sent properly

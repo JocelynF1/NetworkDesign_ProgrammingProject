@@ -3,7 +3,6 @@
 # Phase 2, EECE 5830, Fall 2023
 # 1 October 2023
 
-import struct
 from socket import *
 import hashlib
 import random
@@ -23,7 +22,7 @@ SEQ_0 = 0
 SEQ_1 = 255
 ACK_SEQ_SIZE = 2
 
-#PROPER_CHECKSUM = bytearray(b'\x00\x00')  # temporary value to use until checksum implemented
+# PROPER_CHECKSUM = bytearray(b'\x00\x00')  # temporary value to use until checksum implemented
 
 DATA_OFFSET = ACK_SEQ_SIZE + CHECKSUM_SIZE
 
@@ -43,20 +42,6 @@ def deliver_data(packet_array, file_name):
         f_write.write(i)
 
     f_write.close()
-
-
-def corrupt_data(data):
-    data_length = len(data)
-    corrupt_data = bytearray()
-    for i in range(data_length):
-        corrupt_data.append((data[i] + random.randint(0, 255)) % 256)
-    return corrupt_data
-
-
-def corrupt_ack(ack, seq):
-    corrupt_ack = (ack + random.randint(0, 255)) % 256
-    corrupt_seq = (seq + random.randint(0, 255)) % 256
-    return corrupt_ack, corrupt_seq
 
 
 def checksum(message):
@@ -206,11 +191,9 @@ if __name__ == '__main__':
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
     receiver_state = server.next_state(buffer_size)
     server.state = receiver_state
-    while server.state != S_Wait_for_1_from_below: # we must receive the first packet successfully to move on
+    while server.state != S_Wait_for_1_from_below:  # we must receive the first packet successfully to move on
         receiver_state = server.next_state(buffer_size)
         server.state = receiver_state
-
-
 
     print("Got Here!")
     data = server.data_buffer.pop(0)
