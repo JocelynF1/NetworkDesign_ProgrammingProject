@@ -5,7 +5,9 @@
 
 
 from socket import *
+import numpy as np
 import os
+from math import floor
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -35,7 +37,16 @@ def Make_Packet(file_name, packet_size):
     print("Packets Made. Number of packets: ", len(packet_list), "file position: ", f.tell())
     f.close()
     return packet_list
-
+def corruptor(packet):
+    cor_packet = [0]*len(packet)
+    #print(len(cor_packet))
+    #Function takes in the packet list and will perform a randomized corruption on a certain percetage of packets
+    for j in range(len(packet)):
+        cor_packet[j] = ~packet[j] & 255
+     #  print("Corrupted Packets: ",bin(~packet[j]&255))
+    #print("corrupt packet")
+    #cor_packet=packet
+    return cor_packet
 
 class UDPClient:
     # Initializes the UDP Client with name and port
@@ -111,22 +122,39 @@ class UDPClient:
 if __name__ == '__main__':
     name_receiver = '127.0.0.1'  # data via the loopback connector
     port_receiver = int(input("Specify receiver port (should match server)#: "))
+    cor_percent = int(input("Specify level of corruption as a percentage to the nearest whole number: "))
     # # sender port is not specified since OS specifies that, and we do not care what it is
     # # This is the receiver port, so whichever system is designated as a receiver will use this to listen
     #
+    #Add as a command option, but hard coding for now:
+    #cor_percent = 5
 
+    #instantiate the client
     client = UDPClient(name_receiver, port_receiver)
 
-    packets = Make_Packet("LAND2.BMP", 1024)
+    #make packets
+    packets = Make_Packet("Lavender.jpg", 1024)
+
+    #Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
+    #the packet list that will be corrupted
+    num_pack_cor = int(floor(len(packets) * (cor_percent / 100)))
+    cor_ind = np.random.randint(0, len(packets), size=num_pack_cor)
+
+    print(cor_ind)
 
     # packet_length gets the length of the packet array, and converts it to a string
     packet_length = str(len(packets))
 
     # message is converted from a string to a bytes object, and then sent to the server
     client.send(packet_length.encode())
-
+    i=0
     for x in packets:
+        if i in cor_ind:
+            print("Corrupt Packet",i)
+            x=corruptor(x)
+            x=bytearray(x)
         client.send(x)
+        i = i+1
     client.send(packet_length.encode())
 
 
