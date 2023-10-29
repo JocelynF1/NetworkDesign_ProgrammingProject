@@ -37,16 +37,16 @@ def Make_Packet(file_name, packet_size):
     print("Packets Made. Number of packets: ", len(packet_list), "file position: ", f.tell())
     f.close()
     return packet_list
-def corruptor(packet):
-    cor_packet = [0]*len(packet)
+def corruptor(byte_object):
+    cor_byte_object = [0]*len(byte_object)
     #print(len(cor_packet))
     #Function takes in the packet list and will perform a randomized corruption on a certain percetage of packets
-    for j in range(len(packet)):
-        cor_packet[j] = ~packet[j] & 255
+    for j in range(len(byte_object)):
+        cor_byte_object[j] = ~byte_object[j] & 255
      #  print("Corrupted Packets: ",bin(~packet[j]&255))
     #print("corrupt packet")
     #cor_packet=packet
-    return cor_packet
+    return cor_byte_object
 
 class UDPClient:
     # Initializes the UDP Client with name and port
