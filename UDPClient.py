@@ -1,14 +1,12 @@
 # Michael Burton,Jocelyn Frechette, Jesse Haye-Lewis
 # UDPClient.py
-# Phase 2, EECE 5830, Fall 2023
-# 1 October 2023
+# Phase 3, EECE 5830, Fall 2023
+# 30 October 2023
 import struct
 from socket import *
 import numpy as np
-import os
 from math import floor
-import hashlib
-import random
+import time
 
 
 # documentation link: https://docs.python.org/3/library/socket.html
@@ -126,11 +124,29 @@ def corruptor(byte_object):
     #cor_packet=packet
     return cor_byte_object
 
+
 def checksum(message):
-    # Will put custom hashing function later, this is temporary for testing purposes
-    h = hashlib.blake2b(digest_size=CHECKSUM_SIZE)
-    h.update(message)
-    return bytearray.fromhex(h.hexdigest())
+
+    result = bytearray()
+    evens = bytearray()
+    odds = bytearray()
+
+    is_even = True
+    for bytes in message:
+        if is_even:
+            evens.append(bytes)
+        else:
+            odds.append(bytes)
+        is_even = not is_even
+
+    evens_sum = sum(evens) % 256
+    odds_sum = sum(odds) % 256
+
+
+    result.append(evens_sum)
+    result.append(odds_sum)
+    # print(result)
+    return result
 
 
 def split_packet(message):
@@ -248,16 +264,16 @@ if __name__ == '__main__':
     cor_ind = np.random.choice(len(packets), size=num_pack_cor, replace=False,)
     cor_ind.sort()
 
-    print(cor_ind)
-    print(len(cor_ind))
+    # print(cor_ind)
+    # print(len(cor_ind))
 
     packet_index = 0
-
+    tick = time.perf_counter_ns()
     # In Loop will handle the application layer, in state machine will handle transport layer
     while packet_index < len(packets):
         packet = packets[packet_index]
         if packet_index in cor_ind:
-            print("Corrupt Packet", packet_index)
+            #print("Corrupt Packet", packet_index)
             packet = bytearray(corruptor(packets[packet_index]))
             cor_ind = np.delete(cor_ind, 0)
 
@@ -266,3 +282,8 @@ if __name__ == '__main__':
             packet_index += 1  # we can advance the index since the packet was sent properly
 
         client.state = sender_state  # advance the state
+
+    tock = time.perf_counter_ns()
+
+    delt = tock-tick
+    print("time elapsed (ns): ", delt)

@@ -1,12 +1,13 @@
 # Michael Burton, Jocelyn Frechette, Jesse Hayes-Lewis
 # UDPServer.py
-# Phase 2, EECE 5830, Fall 2023
-# 1 October 2023
+# Phase 3, EECE 5830, Fall 2023
+# 30 October 2023
 
 from socket import *
 import hashlib
 import random
 import numpy as np
+import time
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -55,11 +56,28 @@ def corruptor(byte_object):
     #cor_packet=packet
     return cor_byte_object
 
+
 def checksum(message):
-    # Will put custom hashing function later, this is temporary for testing purposes
-    h = hashlib.blake2b(digest_size=CHECKSUM_SIZE)
-    h.update(message)
-    return bytearray.fromhex(h.hexdigest())
+
+    result = bytearray()
+    evens = bytearray()
+    odds = bytearray()
+
+    is_even = True
+    for bytes in message:
+        if is_even:
+            evens.append(bytes)
+        else:
+            odds.append(bytes)
+        is_even = not is_even
+
+    evens_sum = sum(evens) % 256
+    odds_sum = sum(odds) % 256
+
+    result.append(evens_sum)
+    result.append(odds_sum)
+    # print(result)
+    return result
 
 
 def split_packet(message):
@@ -141,7 +159,7 @@ class UDPServer:
                 corrupted = np.random.choice([0,1], size=1, replace=True, p=[1-corrupt_level,corrupt_level])
                 if corrupted == 1: # corrupt the ack
                     self.num_corrupt_acks += 1
-                    print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
+                    # print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
                 self.socket.sendto(ack_msg, client_address)
                 return S_Wait_for_1_from_below
@@ -155,7 +173,7 @@ class UDPServer:
                 corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
                 if corrupted == 1:  # corrupt the ack
                     self.num_corrupt_acks += 1
-                    print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
+                    # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
 
                 self.socket.sendto(ack_msg, client_address)
@@ -191,7 +209,7 @@ class UDPServer:
                 corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
                 if corrupted == 1:  # corrupt the ack
                     self.num_corrupt_acks += 1
-                    print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
+                    # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
 
                 self.socket.sendto(ack_msg, client_address)
@@ -206,7 +224,7 @@ class UDPServer:
                 corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
                 if corrupted == 1:  # corrupt the ack
                     self.num_corrupt_acks += 1
-                    print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
+                    # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
 
                 self.socket.sendto(ack_msg, client_address)
@@ -230,25 +248,32 @@ if __name__ == '__main__':
 
     buffer_size = 2048
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
+
+
     receiver_state = server.next_state(buffer_size, cor_prob)
     server.state = receiver_state
     while server.state != S_Wait_for_1_from_below:  # we must receive the first packet successfully to move on
         receiver_state = server.next_state(buffer_size, cor_prob)
         server.state = receiver_state
 
-    print("Got Here!")
+    # print("Got Here!")
     data = server.data_buffer.pop(0)
-    print(data)
+    # print(data)
     num_packets = int.from_bytes(data)
 
     packet_index = 0
-
+    tick = time.perf_counter_ns()
     while packet_index < num_packets:
         receiver_state = server.next_state(buffer_size, cor_prob)
         if server.state != receiver_state:
             packet_index += 1
 
         server.state = receiver_state
+
+    tock = time.perf_counter_ns()
+
+    delt = tock - tick
+    print("time elapsed (ns): ", delt)
 
     # "copy.bmp" is where the data from the packets received get written to, location is local to the code directory
     deliver_data(server.data_buffer, "copy.bmp")
