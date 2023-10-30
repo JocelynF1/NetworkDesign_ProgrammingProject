@@ -6,6 +6,7 @@
 from socket import *
 import hashlib
 import random
+import numpy as np
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -14,7 +15,7 @@ S_Wait_for_0_from_below = 0
 S_Wait_for_1_from_below = 1
 
 # structure of message from receiver:
-# 16-bit checksum, 8-bit ACK, 8-bit SEQ, N-byte data
+# 16-bit checksum, 8-bit ACK, 8-bit SEQ
 
 CHECKSUM_SIZE = 2
 ACK = 255  # need to define the ack, should be bytes object with ACK and correct sequence number
@@ -43,6 +44,16 @@ def deliver_data(packet_array, file_name):
 
     f_write.close()
 
+def corruptor(byte_object):
+    cor_byte_object = [0]*len(byte_object)
+    #print(len(cor_packet))
+    #Function takes in the packet list and will perform a randomized corruption on a certain percetage of packets
+    for j in range(len(byte_object)):
+        cor_byte_object[j] = ~byte_object[j] & 255
+     #  print("Corrupted Packets: ",bin(~packet[j]&255))
+    #print("corrupt packet")
+    #cor_packet=packet
+    return cor_byte_object
 
 def checksum(message):
     # Will put custom hashing function later, this is temporary for testing purposes
@@ -86,6 +97,8 @@ class UDPServer:
         self.data_buffer = []
         print("Server initialized")
 
+        self.num_corrupt_acks = 0
+
     def send(self, message):
         self.socket.sendto(message, (self.name_receiver, self.port_receiver))
         # client sends message (converted to Bytes) to server
@@ -97,7 +110,7 @@ class UDPServer:
 
         return message, server_address
 
-    def next_state(self, bdata_size):
+    def next_state(self, bdata_size, corrupt_level):
         if self.state == S_Wait_for_0_from_below:
             msg, client_address = self.receive(bdata_size)
             csum, ack_response, seq_response, data = split_packet(msg)
@@ -125,6 +138,11 @@ class UDPServer:
                 ack_msg.extend(ack_cs)
                 ack_msg.extend(ack_cs_msg)
 
+                corrupted = np.random.choice([0,1], size=1, replace=True, p=[1-corrupt_level,corrupt_level])
+                if corrupted == 1: # corrupt the ack
+                    self.num_corrupt_acks += 1
+                    print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
+                    ack_msg = bytearray(corruptor(ack_msg))
                 self.socket.sendto(ack_msg, client_address)
                 return S_Wait_for_1_from_below
             else:
@@ -133,6 +151,13 @@ class UDPServer:
 
                 ack_msg.extend(ack_cs)
                 ack_msg.extend(ack_cs_msg)
+
+                corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
+                if corrupted == 1:  # corrupt the ack
+                    self.num_corrupt_acks += 1
+                    print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
+                    ack_msg = bytearray(corruptor(ack_msg))
+
                 self.socket.sendto(ack_msg, client_address)
                 return S_Wait_for_0_from_below
 
@@ -163,6 +188,12 @@ class UDPServer:
                 ack_msg.extend(ack_cs)
                 ack_msg.extend(ack_cs_msg)
 
+                corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
+                if corrupted == 1:  # corrupt the ack
+                    self.num_corrupt_acks += 1
+                    print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
+                    ack_msg = bytearray(corruptor(ack_msg))
+
                 self.socket.sendto(ack_msg, client_address)
                 return S_Wait_for_0_from_below
             else:
@@ -171,6 +202,13 @@ class UDPServer:
 
                 ack_msg.extend(ack_cs)
                 ack_msg.extend(ack_cs_msg)
+
+                corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
+                if corrupted == 1:  # corrupt the ack
+                    self.num_corrupt_acks += 1
+                    print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
+                    ack_msg = bytearray(corruptor(ack_msg))
+
                 self.socket.sendto(ack_msg, client_address)
                 return S_Wait_for_1_from_below
         else:
@@ -184,15 +222,18 @@ if __name__ == '__main__':
     # sender port is not specified since OS specifies that, and we do not care what it is
     # This is the receiver port, so whichever system is designated as a receiver will use this to listen
 
+    cor_percent = int(input("Specify level of corruption as a percentage to the nearest whole number: "))
+    cor_prob = cor_percent/100
+
     server = UDPServer(name_receiver, port_receiver)
     server.socket.bind(('', server.port_receiver))
 
     buffer_size = 2048
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
-    receiver_state = server.next_state(buffer_size)
+    receiver_state = server.next_state(buffer_size, cor_prob)
     server.state = receiver_state
     while server.state != S_Wait_for_1_from_below:  # we must receive the first packet successfully to move on
-        receiver_state = server.next_state(buffer_size)
+        receiver_state = server.next_state(buffer_size, cor_prob)
         server.state = receiver_state
 
     print("Got Here!")
@@ -203,7 +244,7 @@ if __name__ == '__main__':
     packet_index = 0
 
     while packet_index < num_packets:
-        receiver_state = server.next_state(buffer_size)
+        receiver_state = server.next_state(buffer_size, cor_prob)
         if server.state != receiver_state:
             packet_index += 1
 
