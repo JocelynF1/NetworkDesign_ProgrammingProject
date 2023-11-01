@@ -26,7 +26,7 @@ Files Included in Submission:
 
 3. Lavender.jpg
     This is the test file used for verification of the applications described above. The file is 1.01 MB in length and is in the Joint Photographic Experts Group file format. 
-    Sourced from: TODO INCLUDE SOURCE
+    Sourced from: https://www.istockphoto.com/photos/prairie-praise
 4. ReadMe.txt
     Descriptor of relevant project items submitted
 5. Design.docx
