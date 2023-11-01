@@ -126,26 +126,20 @@ def corruptor(byte_object):
 
 
 def checksum(message):
-
     result = bytearray()
-    evens = bytearray()
-    odds = bytearray()
+    byte_sum = 0
+    i = 0
 
-    is_even = True
     for bytes in message:
-        if is_even:
-            evens.append(bytes)
-        else:
-            odds.append(bytes)
-        is_even = not is_even
+        byte_sum = message[i] + message[1]
+        i = i + 1
+    #       print(byte_sum)
 
-    evens_sum = sum(evens) % 256
-    odds_sum = sum(odds) % 256
-
-
-    result.append(evens_sum)
-    result.append(odds_sum)
-    # print(result)
+    cksum = byte_sum.to_bytes(2, 'big')
+    #    print(cksum)
+    result.append(cksum[0])
+    result.append(cksum[1])
+    print(result)
     return result
 
 
