@@ -14,10 +14,16 @@ Files Included in Submission:
     of the connection is responsible for locating and packetizing the file-for-transfer, as well as sending individual packets across the link 
     to the Server side. For this phase, it also contains functions for sender side message corruption, adding sequence numbers, ack, and checksum to the data being sent.
     There is also timing code for benchmarking how long the sender remained active.
+
+    To include data packet error, input an integer when prompted indicating the percentage of packets that will be initially sent corrupt.
+
 2. UDPServer.py
     
     This Application contains the relevant code required to generate the Server side of the UDP connection. In this configuration the Server side 
     is responsible for receiving each individual packet and parsing each to recreate the original file from the Client side. For this phase, it also contains functions for receiver side message corruption, adding sequence numbers, ack, and checksum of the ack packet. There is also timing code for benchmarking how long the receiver remained active.
+
+    To include ack packet error, input an integer when prompted indicating the chance any one ack packet will be sent corrupt.
+
 3. Lavender.jpg
     This is the test file used for verification of the applications described above. The file is 1.01 MB in length and is in the Joint Photographic Experts Group file format. 
     Sourced from: TODO INCLUDE SOURCE
