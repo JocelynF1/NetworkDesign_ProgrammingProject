@@ -11,12 +11,12 @@ IDE: PyCharm 2023.2.1
 Files Included in Submission:
 1. UDPClient.py
     This application contains the relevant code required to generate the Client side of the UDP connection. In this configuration the Client side 
-    of the connection is responsible for locating and packetizing the file-for-transfer, as well as sending individual packets across the link 
-    to the Server side. For this phase, it also contains functions for sender side message corruption, adding sequence numbers, ack, and checksum to the data being sent.
+    of the connection is responsible for locating and packetizing the file-for-transfer, as well as sending individual packets across the link to the Server side. 
+    For this phase, it also contains functions for sender side message corruption, adding sequence numbers, ack, and checksum to the data being sent.
     There is also timing code for benchmarking how long the sender remained active.
 
     To include data packet error, input an integer when prompted indicating the percentage of packets that will be initially sent corrupt.
-
+    
 2. UDPServer.py
     
     This Application contains the relevant code required to generate the Server side of the UDP connection. In this configuration the Server side 
@@ -27,6 +27,7 @@ Files Included in Submission:
 3. Lavender.jpg
     This is the test file used for verification of the applications described above. The file is 1.01 MB in length and is in the Joint Photographic Experts Group file format. 
     Sourced from: https://www.istockphoto.com/photos/prairie-praise
+
 4. ReadMe.txt
     Descriptor of relevant project items submitted
 5. Design.docx
@@ -42,7 +43,6 @@ Set Up Instructions:
             - Click install package. Then, wait for numpy to be installed. The code should be runnable.
 
         -Guide for pycharm is also in the execution, ensure you have access to the socket library (should be available in standard configuration)
-       
         -If you would like to use a different image than LAND2.BMP, add the file to the same directory as the code, and change the line in UDPClient.py 
          that says "packets = Make_Packet("LAND2.BMP", 2048)" to "packets = Make_Packet("<<your file name>>", 2048)"
         -If you would like to change the packet size, both the "packets = Make_Packet("LAND2.BMP", <<packet_size>>)" in UDPClient.py and "received_packets = 
