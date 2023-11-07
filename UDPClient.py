@@ -201,8 +201,19 @@ class UDPClient:
         if self.state == S_Wait_for_call_0_from_above:
             # send the packet out
             self.send(message)
+            # start_timer
+            # TODO code for starting timer goes here
             return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_ACK_0:
+            # if timeout
+            # TODO check timeout condition
+            # start_timer
+            # TODO code for starting timer goes here
+            # send packet
+            # self.send(message)
+
+            # else, check the rest
+            # else:
             received_msg = self.receive(bdata_size)
             csum, ack_response, seq_response = split_ack_packet(received_msg)
             cs_packet = bytearray()
@@ -210,14 +221,29 @@ class UDPClient:
             cs_packet.append(seq_response)
             new_checksum = checksum(cs_packet)
             if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
+                # stop_timer
+                # TODO code for stopping the timer goes here
                 return S_Wait_for_call_1_from_above
             else:
-                self.send(message)
+                self.send(message)  # TODO remove when timer implemented
+                # do NOT send the message when timer implemented, do nothing instead
                 return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_call_1_from_above:
             self.send(message)
+            # start_timer
+            # TODO code for starting timer goes here
             return S_Wait_for_ACK_1
         elif self.state == S_Wait_for_ACK_1:
+            # if timeout
+            # TODO check timeout condition
+            # start_timer
+            # TODO code for starting timer goes here
+            # send packet
+            # self.send(message)
+
+            # else, check the rest
+            # else:
+
             received_msg = self.receive(bdata_size)
             csum, ack_response, seq_response = split_ack_packet(received_msg)
             cs_packet = bytearray()
@@ -225,9 +251,11 @@ class UDPClient:
             cs_packet.append(seq_response)
             new_checksum = checksum(cs_packet)
             if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
+
                 return S_Wait_for_call_0_from_above
             else:
-                self.send(message)
+                self.send(message)  # TODO remove when timer implemented
+                # do NOT send the message when timer implemented, do nothing instead
                 return S_Wait_for_ACK_1
         else:  # error state, if state == 10, this should be an error
             return 10

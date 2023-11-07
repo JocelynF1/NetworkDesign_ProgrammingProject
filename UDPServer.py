@@ -102,6 +102,8 @@ class UDPServer:
     # Initializes the UDP Server with name and port
     def __init__(self, name, port):
         self.state = S_Wait_for_0_from_below
+        # TODO comment out oncethru lines when sender has timeouts set up
+        # self.oncethru = 0
         self.name_receiver = name
         self.port_receiver = port
         self.socket = socket(AF_INET, SOCK_DGRAM)  # AF_INET = using IPv4, SOCK_DGRAM = Datagram,
@@ -124,7 +126,7 @@ class UDPServer:
 
         return message, server_address
 
-    def next_state(self, bdata_size, corrupt_level):
+    def next_state(self, bdata_size, corrupt_level): # need to add
         if self.state == S_Wait_for_0_from_below:
             msg, client_address = self.receive(bdata_size)
             csum, ack_response, seq_response, data = split_packet(msg)
@@ -158,8 +160,12 @@ class UDPServer:
                     # print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
                 self.socket.sendto(ack_msg, client_address)
+                # TODO comment out oncethru lines when sender has timeouts set up
+                # self.oncethru = 1
                 return S_Wait_for_1_from_below
             else:
+                # TODO comment out oncethru lines when sender has timeouts set up
+                # if oncethru == 1:
                 ack_cs_msg.append(SEQ_1)
                 ack_cs = checksum(ack_cs_msg)
 
