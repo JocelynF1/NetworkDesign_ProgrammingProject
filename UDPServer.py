@@ -102,8 +102,8 @@ class UDPServer:
     # Initializes the UDP Server with name and port
     def __init__(self, name, port):
         self.state = S_Wait_for_0_from_below
-        # TODO comment out oncethru lines when sender has timeouts set up
-        # self.oncethru = 0
+
+        self.oncethru = 0
         self.name_receiver = name
         self.port_receiver = port
         self.socket = socket(AF_INET, SOCK_DGRAM)  # AF_INET = using IPv4, SOCK_DGRAM = Datagram,
@@ -160,25 +160,25 @@ class UDPServer:
                     # print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
                 self.socket.sendto(ack_msg, client_address)
-                # TODO comment out oncethru lines when sender has timeouts set up
-                # self.oncethru = 1
+
+                self.oncethru = 1
                 return S_Wait_for_1_from_below
             else:
-                # TODO comment out oncethru lines when sender has timeouts set up
-                # if oncethru == 1:
-                ack_cs_msg.append(SEQ_1)
-                ack_cs = checksum(ack_cs_msg)
 
-                ack_msg.extend(ack_cs)
-                ack_msg.extend(ack_cs_msg)
+                if self.oncethru == 1:
+                    ack_cs_msg.append(SEQ_1)
+                    ack_cs = checksum(ack_cs_msg)
 
-                corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
-                if corrupted == 1:  # corrupt the ack
-                    self.num_corrupt_acks += 1
-                    # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
-                    ack_msg = bytearray(corruptor(ack_msg))
+                    ack_msg.extend(ack_cs)
+                    ack_msg.extend(ack_cs_msg)
 
-                self.socket.sendto(ack_msg, client_address)
+                    corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
+                    if corrupted == 1:  # corrupt the ack
+                        self.num_corrupt_acks += 1
+                        # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
+                        ack_msg = bytearray(corruptor(ack_msg))
+
+                    self.socket.sendto(ack_msg, client_address)
                 return S_Wait_for_0_from_below
 
         elif self.state == S_Wait_for_1_from_below:
