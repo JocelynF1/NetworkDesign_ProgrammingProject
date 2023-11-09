@@ -7,7 +7,7 @@ from socket import *
 import numpy as np
 from math import floor
 import time
-
+import threading
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -175,7 +175,10 @@ def is_corrupt(received_checksum, new_checksum):
 
 class UDPClient:
     # Initializes the UDP Client with name and port
-    def __init__(self, name, port):
+    def __init__(self, name, port, tt):
+        self.timeout = False
+        self.time_timeout = tt
+        self.timer = None
         self.state = S_Wait_for_call_0_from_above
         self.name_receiver = name
         self.port_receiver = port
@@ -197,47 +200,55 @@ class UDPClient:
 
         return message
 
+    def toggle_timeout(self):
+        self.timeout = not self.timeout
+
     def next_state(self, message, bdata_size):
         if self.state == S_Wait_for_call_0_from_above:
             # send the packet out
             self.send(message)
             # start_timer
-            # TODO code for starting timer goes here
+            self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)
+            self.timer.start()
             return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_ACK_0:
-            # if timeout
-            # TODO check timeout condition
-            # start_timer
-            # TODO code for starting timer goes here
-            # send packet
-            # self.send(message)
+            # check timeout
+            if self.timeout:
+                self.timer.join() # clean up existing timer
+                # send packet
+                self.send(message)
+                # start_timer
+                self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
+                self.timer.start()
 
             # else, check the rest
-            # else:
-            received_msg = self.receive(bdata_size)
-            csum, ack_response, seq_response = split_ack_packet(received_msg)
-            cs_packet = bytearray()
-            cs_packet.append(ack_response)
-            cs_packet.append(seq_response)
-            new_checksum = checksum(cs_packet)
-            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
-                # stop_timer
-                # TODO code for stopping the timer goes here
-                return S_Wait_for_call_1_from_above
             else:
-                self.send(message)  # TODO remove when timer implemented
-                # do NOT send the message when timer implemented, do nothing instead
-                return S_Wait_for_ACK_0
+                received_msg = self.receive(bdata_size)
+                csum, ack_response, seq_response = split_ack_packet(received_msg)
+                cs_packet = bytearray()
+                cs_packet.append(ack_response)
+                cs_packet.append(seq_response)
+                new_checksum = checksum(cs_packet)
+                if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
+                    # stop_timer
+                    # code for stopping the timer goes here
+                    self.timer.join()  #stop the timer
+                    self.timeout = False  # timeout to False so the next timer will set timeout to True
+                    return S_Wait_for_call_1_from_above
+                else:
+                    # self.send(message)
+                    # do NOT send the message when timer implemented, do nothing but return state instead
+                    return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_call_1_from_above:
             self.send(message)
             # start_timer
-            # TODO code for starting timer goes here
+            # code for starting timer goes here
             return S_Wait_for_ACK_1
         elif self.state == S_Wait_for_ACK_1:
             # if timeout
-            # TODO check timeout condition
+            # check timeout condition
             # start_timer
-            # TODO code for starting timer goes here
+            # code for starting timer goes here
             # send packet
             # self.send(message)
 
@@ -254,7 +265,7 @@ class UDPClient:
 
                 return S_Wait_for_call_0_from_above
             else:
-                self.send(message)  # TODO remove when timer implemented
+                self.send(message)  # remove when timer implemented
                 # do NOT send the message when timer implemented, do nothing instead
                 return S_Wait_for_ACK_1
         else:  # error state, if state == 10, this should be an error
@@ -265,15 +276,18 @@ class UDPClient:
 if __name__ == '__main__':
     name_receiver = '127.0.0.1'  # data via the loopback connector
     port_receiver = int(input("Specify receiver port (should match server)#: "))
+
+    time_of_timeout_ms = int(input("Specify the timeout duration in whole milliseconds: "))
     cor_percent = int(input("Specify level of corruption as a percentage to the nearest whole number: "))
     # # sender port is not specified since OS specifies that, and we do not care what it is
     # # This is the receiver port, so whichever system is designated as a receiver will use this to listen
     #
+    time_of_timeout_s = time_of_timeout_ms/1000
     #Add as a command option, but hard coding for now:
     #cor_percent = 5
 
     #instantiate the client
-    client = UDPClient(name_receiver, port_receiver)
+    client = UDPClient(name_receiver, port_receiver, time_of_timeout_s)
 
 
     #make packets
