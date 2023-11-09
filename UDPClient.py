@@ -7,7 +7,6 @@ from socket import *
 import numpy as np
 from math import floor
 import time
-import threading
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -139,7 +138,7 @@ def checksum(message):
     #    print(cksum)
     result.append(cksum[0])
     result.append(cksum[1])
-    print(result)
+    # print(result)
     return result
 
 
@@ -176,9 +175,10 @@ def is_corrupt(received_checksum, new_checksum):
 class UDPClient:
     # Initializes the UDP Client with name and port
     def __init__(self, name, port, tt):
-        self.timeout = False
+        # self.timeout = False
         self.time_timeout = tt
-        self.timer = None
+        self.time_threshold = 0
+        # self.timer = None
         self.state = S_Wait_for_call_0_from_above
         self.name_receiver = name
         self.port_receiver = port
@@ -200,26 +200,29 @@ class UDPClient:
 
         return message
 
-    def toggle_timeout(self):
-        self.timeout = not self.timeout
+#    def toggle_timeout(self):
+#        self.timeout = not self.timeout
 
     def next_state(self, message, bdata_size):
         if self.state == S_Wait_for_call_0_from_above:
             # send the packet out
             self.send(message)
             # start_timer
-            self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)
-            self.timer.start()
+            # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)
+            # self.timer.start()
+            self.time_threshold = time.time() + self.time_timeout
             return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_ACK_0:
             # check timeout
-            if self.timeout:
-                self.timer.join() # clean up existing timer
+            if time.time() >= self.time_threshold:
+                # self.timer.cancel()  # clean up existing timer
+                # self.timer.join(timeout=0)
                 # send packet
                 self.send(message)
                 # start_timer
-                self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
-                self.timer.start()
+                # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
+                # self.timer.start()
+                self.time_threshold = time.time() + self.time_timeout
 
             # else, check the rest
             else:
@@ -232,8 +235,9 @@ class UDPClient:
                 if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
                     # stop_timer
                     # code for stopping the timer goes here
-                    self.timer.join()  #stop the timer
-                    self.timeout = False  # timeout to False so the next timer will set timeout to True
+                    # self.timer.cancel()  # stop the timer
+                    # self.timer.join(timeout=0)
+                    # self.timeout = False  # timeout to False so the next timer will set timeout to True
                     return S_Wait_for_call_1_from_above
                 else:
                     # self.send(message)
@@ -242,32 +246,42 @@ class UDPClient:
         elif self.state == S_Wait_for_call_1_from_above:
             self.send(message)
             # start_timer
+            # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
+            # self.timer.start()
+            self.time_threshold = time.time() + self.time_timeout
             # code for starting timer goes here
             return S_Wait_for_ACK_1
         elif self.state == S_Wait_for_ACK_1:
-            # if timeout
-            # check timeout condition
-            # start_timer
-            # code for starting timer goes here
-            # send packet
-            # self.send(message)
+            if time.time() >= self.time_threshold:
+                # self.timer.cancel()  # clean up existing timer
+                # self.timer.join(timeout=0)
+                # check timeout condition
 
-            # else, check the rest
-            # else:
+                # send packet
+                self.send(message)
+                # start_timer
+                # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
+                # self.timer.start()
+                self.time_threshold = time.time() + self.time_timeout
+                # code for starting timer goes here
 
-            received_msg = self.receive(bdata_size)
-            csum, ack_response, seq_response = split_ack_packet(received_msg)
-            cs_packet = bytearray()
-            cs_packet.append(ack_response)
-            cs_packet.append(seq_response)
-            new_checksum = checksum(cs_packet)
-            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
-
-                return S_Wait_for_call_0_from_above
+                # else, check the rest
             else:
-                self.send(message)  # remove when timer implemented
-                # do NOT send the message when timer implemented, do nothing instead
-                return S_Wait_for_ACK_1
+                received_msg = self.receive(bdata_size)
+                csum, ack_response, seq_response = split_ack_packet(received_msg)
+                cs_packet = bytearray()
+                cs_packet.append(ack_response)
+                cs_packet.append(seq_response)
+                new_checksum = checksum(cs_packet)
+                if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
+                    # self.timer.cancel()  # stop the timer
+                    # self.timer.join(timeout=0)
+                    # self.timeout = False  # timeout to False so the next timer will set timeout to True
+                    return S_Wait_for_call_0_from_above
+                else:
+                    # self.send(message)  # remove when timer implemented
+                    # do NOT send the message when timer implemented, do nothing instead
+                    return S_Wait_for_ACK_1
         else:  # error state, if state == 10, this should be an error
             return 10
 

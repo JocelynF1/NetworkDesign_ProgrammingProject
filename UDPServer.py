@@ -72,7 +72,7 @@ def checksum(message):
     #    print(cksum)
     result.append(cksum[0])
     result.append(cksum[1])
-    print(result)
+    # print(result)
     return result
 
 
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     server = UDPServer(name_receiver, port_receiver)
     server.socket.bind(('', server.port_receiver))
 
-    buffer_size = 2048
+    buffer_size = 1028
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
 
 
