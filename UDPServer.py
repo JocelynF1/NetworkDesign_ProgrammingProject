@@ -97,6 +97,11 @@ def is_corrupt(received_checksum, new_checksum):
     # Then, we calculate the checksum of the ACK,
     return received_checksum != new_checksum
 
+def rand_indices(pack_list, percent_ind):
+    num_pack = int(floor(len(pack_list) * (percent_ind / 100)))
+    ind = np.random.choice(len(pack_list), size=num_pack, replace=False, )
+    ind.sort()
+    return ind
 
 class UDPServer:
     # Initializes the UDP Server with name and port
@@ -126,7 +131,7 @@ class UDPServer:
 
         return message, server_address
 
-    def next_state(self, bdata_size, corrupt_level): # need to add
+    def next_state(self, bdata_size, corrupt_level, lost_level): # need to add
         if self.state == S_Wait_for_0_from_below:
             msg, client_address = self.receive(bdata_size)
             csum, ack_response, seq_response, data = split_packet(msg)
@@ -159,7 +164,9 @@ class UDPServer:
                     self.num_corrupt_acks += 1
                     # print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
-                self.socket.sendto(ack_msg, client_address)
+                lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
+                if lost == 0:
+                    self.socket.sendto(ack_msg, client_address)
 
                 self.oncethru = 1
                 return S_Wait_for_1_from_below
@@ -177,8 +184,9 @@ class UDPServer:
                         self.num_corrupt_acks += 1
                         # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
                         ack_msg = bytearray(corruptor(ack_msg))
-
-                    self.socket.sendto(ack_msg, client_address)
+                    lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
+                    if lost == 0:
+                        self.socket.sendto(ack_msg, client_address)
                 return S_Wait_for_0_from_below
 
         elif self.state == S_Wait_for_1_from_below:
@@ -214,7 +222,10 @@ class UDPServer:
                     # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
 
-                self.socket.sendto(ack_msg, client_address)
+                lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
+                if lost == 0:
+                    self.socket.sendto(ack_msg, client_address)
+
                 return S_Wait_for_0_from_below
             else:
                 ack_cs_msg.append(SEQ_0)
@@ -229,7 +240,10 @@ class UDPServer:
                     # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
 
-                self.socket.sendto(ack_msg, client_address)
+                lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
+                if lost == 0:
+                    self.socket.sendto(ack_msg, client_address)
+
                 return S_Wait_for_1_from_below
         else:
             return 10  # error
@@ -242,8 +256,11 @@ if __name__ == '__main__':
     # sender port is not specified since OS specifies that, and we do not care what it is
     # This is the receiver port, so whichever system is designated as a receiver will use this to listen
 
+    dropped_percent = int(input("Specify level of packet loss as a percentage to the nearest whole number: "))
+
     cor_percent = int(input("Specify level of corruption as a percentage to the nearest whole number: "))
     cor_prob = cor_percent/100
+    loss_prob = dropped_percent / 100
 
     server = UDPServer(name_receiver, port_receiver)
     server.socket.bind(('', server.port_receiver))
@@ -251,11 +268,10 @@ if __name__ == '__main__':
     buffer_size = 1028
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
 
-
-    receiver_state = server.next_state(buffer_size, cor_prob)
+    receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
     server.state = receiver_state
     while server.state != S_Wait_for_1_from_below:  # we must receive the first packet successfully to move on
-        receiver_state = server.next_state(buffer_size, cor_prob)
+        receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
         server.state = receiver_state
 
     # print("Got Here!")
@@ -266,7 +282,7 @@ if __name__ == '__main__':
     packet_index = 0
     tick = time.perf_counter_ns()
     while packet_index < num_packets:
-        receiver_state = server.next_state(buffer_size, cor_prob)
+        receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
         if server.state != receiver_state:
             packet_index += 1
 

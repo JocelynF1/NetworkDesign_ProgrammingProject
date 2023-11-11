@@ -171,6 +171,11 @@ def is_corrupt(received_checksum, new_checksum):
     # Then, we calculate the checksum of the ACK,
     return received_checksum != new_checksum
 
+def rand_indices(pack_list, percent_ind):
+    num_pack = int(floor(len(pack_list) * (percent_ind / 100)))
+    ind = np.random.choice(len(pack_list), size=num_pack, replace=False, )
+    ind.sort()
+    return ind
 
 class UDPClient:
     # Initializes the UDP Client with name and port
@@ -196,92 +201,79 @@ class UDPClient:
     # receive
     # input: bdata_size
     def receive(self, bdata_size):
-        message, server_address = self.socket.recvfrom(bdata_size)
+        self.socket.settimeout(self.time_timeout)
+
+        try:
+            message, server_address = self.socket.recvfrom(bdata_size)
+        except TimeoutError:
+            message = "TimeoutError"
 
         return message
 
 #    def toggle_timeout(self):
 #        self.timeout = not self.timeout
 
-    def next_state(self, message, bdata_size):
+    def next_state(self, message, bdata_size, lost_bool):
         if self.state == S_Wait_for_call_0_from_above:
             # send the packet out
-            self.send(message)
+            if not lost_bool:
+                self.send(message)
             # start_timer
-            # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)
-            # self.timer.start()
-            self.time_threshold = time.time() + self.time_timeout
+
+
             return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_ACK_0:
-            # check timeout
-            if time.time() >= self.time_threshold:
-                # self.timer.cancel()  # clean up existing timer
+            received_msg = self.receive(bdata_size)
+            if received_msg == "TimeoutError":
+                if not lost_bool:
+                    self.send(message)
+                return S_Wait_for_ACK_0
+            csum, ack_response, seq_response = split_ack_packet(received_msg)
+            cs_packet = bytearray()
+            cs_packet.append(ack_response)
+            cs_packet.append(seq_response)
+            new_checksum = checksum(cs_packet)
+            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
+                # stop_timer
+                # code for stopping the timer goes here
+                # self.timer.cancel()  # stop the timer
                 # self.timer.join(timeout=0)
-                # send packet
-                self.send(message)
-                # start_timer
-                # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
-                # self.timer.start()
-                self.time_threshold = time.time() + self.time_timeout
-
-            # else, check the rest
+                # self.timeout = False  # timeout to False so the next timer will set timeout to True
+                return S_Wait_for_call_1_from_above
             else:
-                received_msg = self.receive(bdata_size)
-                csum, ack_response, seq_response = split_ack_packet(received_msg)
-                cs_packet = bytearray()
-                cs_packet.append(ack_response)
-                cs_packet.append(seq_response)
-                new_checksum = checksum(cs_packet)
-                if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
-                    # stop_timer
-                    # code for stopping the timer goes here
-                    # self.timer.cancel()  # stop the timer
-                    # self.timer.join(timeout=0)
-                    # self.timeout = False  # timeout to False so the next timer will set timeout to True
-                    return S_Wait_for_call_1_from_above
-                else:
-                    # self.send(message)
-                    # do NOT send the message when timer implemented, do nothing but return state instead
-                    return S_Wait_for_ACK_0
+                # self.send(message)
+                # do NOT send the message when timer implemented, do nothing but return state instead
+                return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_call_1_from_above:
-            self.send(message)
+            if not lost_bool:
+                self.send(message)
             # start_timer
             # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
             # self.timer.start()
-            self.time_threshold = time.time() + self.time_timeout
+
             # code for starting timer goes here
             return S_Wait_for_ACK_1
         elif self.state == S_Wait_for_ACK_1:
-            if time.time() >= self.time_threshold:
-                # self.timer.cancel()  # clean up existing timer
+            received_msg = self.receive(bdata_size)
+            if received_msg == "TimeoutError":
+                if not lost_bool:
+                    self.send(message)
+                return S_Wait_for_ACK_1
+
+            csum, ack_response, seq_response = split_ack_packet(received_msg)
+            cs_packet = bytearray()
+            cs_packet.append(ack_response)
+            cs_packet.append(seq_response)
+            new_checksum = checksum(cs_packet)
+            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
+                # self.timer.cancel()  # stop the timer
                 # self.timer.join(timeout=0)
-                # check timeout condition
-
-                # send packet
-                self.send(message)
-                # start_timer
-                # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
-                # self.timer.start()
-                self.time_threshold = time.time() + self.time_timeout
-                # code for starting timer goes here
-
-                # else, check the rest
+                # self.timeout = False  # timeout to False so the next timer will set timeout to True
+                return S_Wait_for_call_0_from_above
             else:
-                received_msg = self.receive(bdata_size)
-                csum, ack_response, seq_response = split_ack_packet(received_msg)
-                cs_packet = bytearray()
-                cs_packet.append(ack_response)
-                cs_packet.append(seq_response)
-                new_checksum = checksum(cs_packet)
-                if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
-                    # self.timer.cancel()  # stop the timer
-                    # self.timer.join(timeout=0)
-                    # self.timeout = False  # timeout to False so the next timer will set timeout to True
-                    return S_Wait_for_call_0_from_above
-                else:
-                    # self.send(message)  # remove when timer implemented
-                    # do NOT send the message when timer implemented, do nothing instead
-                    return S_Wait_for_ACK_1
+                # self.send(message)  # remove when timer implemented
+                # do NOT send the message when timer implemented, do nothing instead
+                return S_Wait_for_ACK_1
         else:  # error state, if state == 10, this should be an error
             return 10
 
@@ -293,6 +285,7 @@ if __name__ == '__main__':
 
     time_of_timeout_ms = int(input("Specify the timeout duration in whole milliseconds: "))
     cor_percent = int(input("Specify level of corruption as a percentage to the nearest whole number: "))
+    dropped_percent = int(input("Specify level of packet loss as a percentage to the nearest whole number: "))
     # # sender port is not specified since OS specifies that, and we do not care what it is
     # # This is the receiver port, so whichever system is designated as a receiver will use this to listen
     #
@@ -309,25 +302,31 @@ if __name__ == '__main__':
 
     #Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
     #the packet list that will be corrupted
-    num_pack_cor = int(floor(len(packets) * (cor_percent / 100)))
-    # cor_ind = np.random.randint(0, len(packets), size=num_pack_cor)
-    cor_ind = np.random.choice(len(packets), size=num_pack_cor, replace=False,)
-    cor_ind.sort()
+    cor_ind = rand_indices(packets, cor_percent)
+    loss_ind = rand_indices(packets, dropped_percent)
 
     # print(cor_ind)
     # print(len(cor_ind))
+
+    print(loss_ind)
+    print(len(loss_ind))
 
     packet_index = 0
     tick = time.perf_counter_ns()
     # In Loop will handle the application layer, in state machine will handle transport layer
     while packet_index < len(packets):
+        lost_bool = False
         packet = packets[packet_index]
         if packet_index in cor_ind:
             #print("Corrupt Packet", packet_index)
             packet = bytearray(corruptor(packets[packet_index]))
             cor_ind = np.delete(cor_ind, 0)
+        if packet_index in loss_ind:
+            #print("Corrupt Packet", packet_index)
+            lost_bool = True
+            loss_ind = np.delete(loss_ind, 0)
 
-        sender_state = client.next_state(packet, 2048)
+        sender_state = client.next_state(packet, 2048, lost_bool)
         if sender_state == S_Wait_for_call_0_from_above or sender_state == S_Wait_for_call_1_from_above:
             packet_index += 1  # we can advance the index since the packet was sent properly
 
