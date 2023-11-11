@@ -8,6 +8,7 @@ import hashlib
 import random
 import numpy as np
 import time
+from math import floor
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
@@ -293,5 +294,5 @@ if __name__ == '__main__':
     delt = tock - tick
     print("time elapsed (ns): ", delt)
 
-    # "copy.bmp" is where the data from the packets received get written to, location is local to the code directory
-    deliver_data(server.data_buffer, "copy.bmp")
+    # "copy.jpg" is where the data from the packets received get written to, location is local to the code directory
+    deliver_data(server.data_buffer, "copy.jpg")

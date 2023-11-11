@@ -333,6 +333,5 @@ if __name__ == '__main__':
         client.state = sender_state  # advance the state
 
     tock = time.perf_counter_ns()
-
     delt = tock-tick
     print("time elapsed (ns): ", delt)
