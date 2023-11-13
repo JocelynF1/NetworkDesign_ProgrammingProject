@@ -211,9 +211,11 @@ class UDPServer:
                 # deliver data
                 self.data_buffer.append(data)
                 # send pos ack
+                # put together the rest of the message for use with the checksum
                 ack_cs_msg.append(SEQ_1)
                 ack_cs = checksum(ack_cs_msg)
 
+                # assemble the packet with the checksum
                 ack_msg.extend(ack_cs)
                 ack_msg.extend(ack_cs_msg)
 
@@ -229,20 +231,24 @@ class UDPServer:
 
                 return S_Wait_for_0_from_below
             else:
+                # put together the rest of the message for use with the checksum
                 ack_cs_msg.append(SEQ_0)
                 ack_cs = checksum(ack_cs_msg)
 
+                # assemble the packet with the checksum
                 ack_msg.extend(ack_cs)
                 ack_msg.extend(ack_cs_msg)
 
+                # This is the calculation per ack for corrupting the packet
                 corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
                 if corrupted == 1:  # corrupt the ack
                     self.num_corrupt_acks += 1
                     # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
                     ack_msg = bytearray(corruptor(ack_msg))
 
+                # This is the calculation per ack for losing the packet
                 lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
-                if lost == 0:
+                if lost == 0:  # only send if packet is not lost (lost==0)
                     self.socket.sendto(ack_msg, client_address)
 
                 return S_Wait_for_1_from_below

@@ -171,6 +171,9 @@ def is_corrupt(received_checksum, new_checksum):
     # Then, we calculate the checksum of the ACK,
     return received_checksum != new_checksum
 
+
+# Takes a list of packets and a percentage
+# returns a random percentage-sized selection of indices from the list of packets,
 def rand_indices(pack_list, percent_ind):
     num_pack = int(floor(len(pack_list) * (percent_ind / 100)))
     ind = np.random.choice(len(pack_list), size=num_pack, replace=False, )
@@ -180,10 +183,7 @@ def rand_indices(pack_list, percent_ind):
 class UDPClient:
     # Initializes the UDP Client with name and port
     def __init__(self, name, port, tt):
-        # self.timeout = False
         self.time_timeout = tt
-        self.time_threshold = 0
-        # self.timer = None
         self.state = S_Wait_for_call_0_from_above
         self.name_receiver = name
         self.port_receiver = port
@@ -203,6 +203,8 @@ class UDPClient:
     def receive(self, bdata_size):
         self.socket.settimeout(self.time_timeout)
 
+        # if the recvfrom function takes longer than time_timeout to receive data from the server
+        # Timeout
         try:
             message, server_address = self.socket.recvfrom(bdata_size)
         except TimeoutError:
@@ -219,8 +221,6 @@ class UDPClient:
             if not lost_bool:
                 self.send(message)
             # start_timer
-
-
             return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_ACK_0:
             received_msg = self.receive(bdata_size)
@@ -236,21 +236,14 @@ class UDPClient:
             if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
                 # stop_timer
                 # code for stopping the timer goes here
-                # self.timer.cancel()  # stop the timer
-                # self.timer.join(timeout=0)
-                # self.timeout = False  # timeout to False so the next timer will set timeout to True
                 return S_Wait_for_call_1_from_above
             else:
-                # self.send(message)
                 # do NOT send the message when timer implemented, do nothing but return state instead
                 return S_Wait_for_ACK_0
         elif self.state == S_Wait_for_call_1_from_above:
             if not lost_bool:
                 self.send(message)
             # start_timer
-            # self.timer = threading.Timer(self.time_timeout, self.toggle_timeout)  # set up new timer
-            # self.timer.start()
-
             # code for starting timer goes here
             return S_Wait_for_ACK_1
         elif self.state == S_Wait_for_ACK_1:
@@ -266,12 +259,8 @@ class UDPClient:
             cs_packet.append(seq_response)
             new_checksum = checksum(cs_packet)
             if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
-                # self.timer.cancel()  # stop the timer
-                # self.timer.join(timeout=0)
-                # self.timeout = False  # timeout to False so the next timer will set timeout to True
                 return S_Wait_for_call_0_from_above
             else:
-                # self.send(message)  # remove when timer implemented
                 # do NOT send the message when timer implemented, do nothing instead
                 return S_Wait_for_ACK_1
         else:  # error state, if state == 10, this should be an error
