@@ -15,14 +15,16 @@ Files Included in Submission:
     For this phase, it also contains functions for sender side message corruption, adding sequence numbers, ack, and checksum to the data being sent.
     There is also timing code for benchmarking how long the sender remained active.
 
-    To include data packet error, input an integer when prompted indicating the percentage of packets that will be initially sent corrupt.
+   -To include data packet error (i.e. Packet Corruption), input an integer value when prompted indicating the percentage of packets that will be initially sent corrupt.
+   -To include data packet loss, input an integer value when prompted indicating the percentage of packets that will be lost during transmission from Client to the Receiver.
     
 2. UDPServer.py
     
     This Application contains the relevant code required to generate the Server side of the UDP connection. In this configuration the Server side 
     is responsible for receiving each individual packet and parsing each to recreate the original file from the Client side. For this phase, it also contains functions for receiver side message corruption, adding sequence numbers, ack, and checksum of the ack packet. There is also timing code for benchmarking how long the receiver remained active.
 
-    To include ack packet error, input an integer when prompted indicating the chance any one ack packet will be sent corrupt.
+    -To include ack packet error (i.e. Ack Corruption), input an integer value when prompted indicating the chance any one ack packet will be sent corrupt.
+    -To include ack packet loss, input an integer value when prompted indicating the percentage of Ack packets lost during transmission from Receiver to Client.
 
 3. Lavender.jpg
     This is the test file used for verification of the applications described above. The file is 1.01 MB in length and is in the Joint Photographic Experts Group file format. 
