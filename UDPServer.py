@@ -167,7 +167,7 @@ class UDPServer:
         new_checksum = checksum(cs_message)
 
         if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, self.expectedseqnum):
-            print("Received successfully here")
+            #print("Received successfully here")
             # deliver data
             self.data_buffer.append(data)
 
@@ -223,6 +223,7 @@ if __name__ == '__main__':
     data = server.data_buffer.pop(0)
     # print(data)
     num_packets = int.from_bytes(data)
+    print(num_packets)
 
     packet_index = 0
     tick = time.perf_counter_ns()
@@ -231,7 +232,7 @@ if __name__ == '__main__':
         server.next_state(buffer_size, cor_prob, loss_prob)
         if server.expectedseqnum != prev_seq_num:
             print("packet_index: ", packet_index)
-            packet_index += (server.expectedseqnum - prev_seq_num) % 256
+            packet_index += 1
 
 
     tock = time.perf_counter_ns()

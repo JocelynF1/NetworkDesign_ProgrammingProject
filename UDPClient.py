@@ -226,7 +226,7 @@ class UDPClient:
 
     def next_state(self, bdata_size, lost_bool):
         try:
-            if self.nextseqnum < self.base + self.window:
+            if self.nextseqnum < ((self.base + self.window) % 256):
                 #if self.ind_next_seq < self.packet_list_length:  # checks edge case for when window is not full
                 print("Sending ind_next_seq: ", self.ind_next_seq)
                 self.send(self.packet_list[self.ind_next_seq])
@@ -236,8 +236,8 @@ class UDPClient:
             else:
                 received_msg = self.receive(bdata_size)
                 if received_msg == "TimeoutError":
-                    print("Timeout: Sending window starting with: ", self.ind_base)
-                    for i in range(self.window):
+                    print("Timeout: Sending up to nextseqnum starting with: ", self.ind_base)
+                    for i in range(0, (self.nextseqnum - self.base) % 256):
                         self.send(self.packet_list[self.ind_base + i])
                         print(self.ind_base, self.ind_next_seq)
                 else:
@@ -247,14 +247,16 @@ class UDPClient:
                     cs_packet.append(seq_response)
                     new_checksum = checksum(cs_packet)
                     # print("Received something")
+                    #print("seq_response:", seq_response)
                     if not is_corrupt(csum, new_checksum):
                         # recalculating the new absolute index in the array of packets for the base
                         # The difference between the seq_response and the base value, wrapped around
                         # Then add 1 to get to the next unacknowledged packet number
                         # Then add that difference to the ind_base
-                        self.ind_base += (seq_response - self.base) % 256 + 1
-                        print(self.ind_base)
+
+                        self.ind_base += (seq_response - self.base + 1) % 256
                         self.base = inc_seq_num(seq_response)
+                        print("self.base: ", self.base)
                         # print("incremented base")
         except IndexError:
             pass
@@ -350,7 +352,7 @@ if __name__ == '__main__':
     tick = time.perf_counter_ns()
     # In Loop will handle the application layer, in state machine will handle transport layer
     # print(len(packets))
-    while client.ind_next_seq <= len(packets):
+    while client.ind_next_seq < len(packets):
         # print(len(packets))
         lost_bool = False
         # packet = packets[packet_index]
