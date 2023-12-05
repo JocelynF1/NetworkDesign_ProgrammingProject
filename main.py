@@ -7,6 +7,8 @@ import threading
 
 timeout = False
 
+import turtle as t
+#from appJar import gui
 
 # Press the green button in the gutter to run the script.
 
@@ -29,7 +31,29 @@ def complex_routine():
         x += 1
 
 
+def move_square(side_length):
+    t.begin_fill()
+    t.back(side_length)
+    t.left(90)
+    t.back(side_length)
+    t.left(90)
+    t.back(side_length)
+    t.left(90)
+    t.back(side_length)
+    t.end_fill()
+
+
 if __name__ == '__main__':
+    # t.hideturtle()
+    # move_square(500)
+    #
+    # t.mainloop()
+    packets = [1,2,3]
+    packet = packets[4]
+    # app = gui()
+    # app.addLabel("title", "Welcome to appJar")
+    # app.setLabelBg("title", "red")
+    # app.go()
 
     # This is how to set up a Timer at the beginning of time
     timer = threading.Timer(10.0, toggle_timeout)

@@ -104,6 +104,11 @@ def rand_indices(pack_list, percent_ind):
     ind.sort()
     return ind
 
+
+def inc_seq_num(seq_num):
+    seq_num = (seq_num + 1) % 256
+    return seq_num
+
 class UDPServer:
     # Initializes the UDP Server with name and port
     def __init__(self, name, port):
@@ -121,9 +126,27 @@ class UDPServer:
 
         self.num_corrupt_acks = 0
 
+        self.expectedseqnum = 1
+
+        # ack message to send back
+        ack_msg = bytearray()
+
+        # everything except the checksum field is passed to the checksum function
+        ack_cs_msg = bytearray()
+        ack_cs_msg.append(ACK)
+        ack_cs_msg.append(0)
+        ack_cs = checksum(ack_cs_msg)
+
+        ack_msg.extend(ack_cs)
+        ack_msg.append(ACK)
+        ack_msg.append(0)
+        self.sndpkt = ack_msg
+        # print(self.sndpkt)
+
     def send(self, message):
-        self.socket.sendto(message, (self.name_receiver, self.port_receiver))
+        #self.socket.sendto(message, (self.name_receiver, self.port_receiver))
         # client sends message (converted to Bytes) to server
+        pass
 
     # receive
     # input: bdata_size
@@ -133,72 +156,20 @@ class UDPServer:
         return message, server_address
 
     def next_state(self, bdata_size, corrupt_level, lost_level): # need to add
-        if self.state == S_Wait_for_0_from_below:
-            msg, client_address = self.receive(bdata_size)
-            csum, ack_response, seq_response, data = split_packet(msg)
 
-            cs_message = bytearray()
-            cs_message.append(ack_response)
-            cs_message.append(seq_response)
-            cs_message.extend(data)
-            new_checksum = checksum(cs_message)
+        msg, client_address = self.receive(bdata_size)
+        csum, ack_response, seq_response, data = split_packet(msg)
 
-            # ack message to send back
-            ack_msg = bytearray()
+        cs_message = bytearray()
+        cs_message.append(ack_response)
+        cs_message.append(seq_response)
+        cs_message.extend(data)
+        new_checksum = checksum(cs_message)
 
-            # everything except the checksum field is passed to the checksum function
-            ack_cs_msg = bytearray()
-            ack_cs_msg.append(ACK)
-
-            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
-                # deliver data
-                self.data_buffer.append(data)
-                # send pos ack
-                ack_cs_msg.append(SEQ_0)
-                ack_cs = checksum(ack_cs_msg)
-
-                ack_msg.extend(ack_cs)
-                ack_msg.extend(ack_cs_msg)
-
-                corrupted = np.random.choice([0,1], size=1, replace=True, p=[1-corrupt_level,corrupt_level])
-                if corrupted == 1: # corrupt the ack
-                    self.num_corrupt_acks += 1
-                    # print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
-                    ack_msg = bytearray(corruptor(ack_msg))
-                lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
-                if lost == 0:
-                    self.socket.sendto(ack_msg, client_address)
-
-                self.oncethru = 1
-                return S_Wait_for_1_from_below
-            else:
-
-                if self.oncethru == 1:
-                    ack_cs_msg.append(SEQ_1)
-                    ack_cs = checksum(ack_cs_msg)
-
-                    ack_msg.extend(ack_cs)
-                    ack_msg.extend(ack_cs_msg)
-
-                    corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
-                    if corrupted == 1:  # corrupt the ack
-                        self.num_corrupt_acks += 1
-                        # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
-                        ack_msg = bytearray(corruptor(ack_msg))
-                    lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
-                    if lost == 0:
-                        self.socket.sendto(ack_msg, client_address)
-                return S_Wait_for_0_from_below
-
-        elif self.state == S_Wait_for_1_from_below:
-            msg, client_address = self.receive(bdata_size)
-            csum, ack_response, seq_response, data = split_packet(msg)
-
-            cs_message = bytearray()
-            cs_message.append(ack_response)
-            cs_message.append(seq_response)
-            cs_message.extend(data)
-            new_checksum = checksum(cs_message)
+        if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, self.expectedseqnum):
+            print("Received successfully here")
+            # deliver data
+            self.data_buffer.append(data)
 
             # ack message to send back
             ack_msg = bytearray()
@@ -207,53 +178,20 @@ class UDPServer:
             ack_cs_msg = bytearray()
             ack_cs_msg.append(ACK)
 
-            if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
-                # deliver data
-                self.data_buffer.append(data)
-                # send pos ack
-                # put together the rest of the message for use with the checksum
-                ack_cs_msg.append(SEQ_1)
-                ack_cs = checksum(ack_cs_msg)
+            # send pos ack
+            ack_cs_msg.append(self.expectedseqnum)
+            ack_cs = checksum(ack_cs_msg)
 
-                # assemble the packet with the checksum
-                ack_msg.extend(ack_cs)
-                ack_msg.extend(ack_cs_msg)
+            ack_msg.extend(ack_cs)
+            ack_msg.append(ACK)
+            ack_msg.append(self.expectedseqnum)
+            self.sndpkt = ack_msg
 
-                corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
-                if corrupted == 1:  # corrupt the ack
-                    self.num_corrupt_acks += 1
-                    # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
-                    ack_msg = bytearray(corruptor(ack_msg))
+            self.expectedseqnum = inc_seq_num(self.expectedseqnum)
 
-                lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
-                if lost == 0:
-                    self.socket.sendto(ack_msg, client_address)
+        self.socket.sendto(self.sndpkt, client_address)
+        print(self.sndpkt)
 
-                return S_Wait_for_0_from_below
-            else:
-                # put together the rest of the message for use with the checksum
-                ack_cs_msg.append(SEQ_0)
-                ack_cs = checksum(ack_cs_msg)
-
-                # assemble the packet with the checksum
-                ack_msg.extend(ack_cs)
-                ack_msg.extend(ack_cs_msg)
-
-                # This is the calculation per ack for corrupting the packet
-                corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
-                if corrupted == 1:  # corrupt the ack
-                    self.num_corrupt_acks += 1
-                    # print("Number of Corrupt acks so far: ", self.num_corrupt_acks)
-                    ack_msg = bytearray(corruptor(ack_msg))
-
-                # This is the calculation per ack for losing the packet
-                lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
-                if lost == 0:  # only send if packet is not lost (lost==0)
-                    self.socket.sendto(ack_msg, client_address)
-
-                return S_Wait_for_1_from_below
-        else:
-            return 10  # error
 
 
 # Run the program from here
@@ -276,10 +214,10 @@ if __name__ == '__main__':
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
 
     receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
-    server.state = receiver_state
-    while server.state != S_Wait_for_1_from_below:  # we must receive the first packet successfully to move on
-        receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
-        server.state = receiver_state
+
+    while server.expectedseqnum == 0:  # we must receive the first packet successfully to move on
+        server.next_state(buffer_size, cor_prob, loss_prob)
+        print("This should only print once when there is no loss or corruption")
 
     # print("Got Here!")
     data = server.data_buffer.pop(0)
@@ -289,11 +227,12 @@ if __name__ == '__main__':
     packet_index = 0
     tick = time.perf_counter_ns()
     while packet_index < num_packets:
-        receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
-        if server.state != receiver_state:
-            packet_index += 1
+        prev_seq_num = server.expectedseqnum
+        server.next_state(buffer_size, cor_prob, loss_prob)
+        if server.expectedseqnum != prev_seq_num:
+            print("packet_index: ", packet_index)
+            packet_index += (server.expectedseqnum - prev_seq_num) % 256
 
-        server.state = receiver_state
 
     tock = time.perf_counter_ns()
 
