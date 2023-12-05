@@ -226,7 +226,7 @@ class UDPClient:
 
     def next_state(self, bdata_size, lost_bool):
         try:
-            if self.nextseqnum < ((self.base + self.window) % 256):
+            if (self.nextseqnum - self.base) % 256 < self.window:
                 #if self.ind_next_seq < self.packet_list_length:  # checks edge case for when window is not full
                 print("Sending ind_next_seq: ", self.ind_next_seq)
                 self.send(self.packet_list[self.ind_next_seq])
