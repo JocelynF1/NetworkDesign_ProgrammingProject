@@ -184,7 +184,7 @@ def rand_indices(pack_list, percent_ind):
 
 class UDPClient:
     # Initializes the UDP Client with name and port
-    def __init__(self, name, port, tt, window, packet_list):
+    def __init__(self, name, port, tt, window, packet_list, cor_percent, dropped_percent):
         self.time_timeout = tt
         self.state = S_Wait_for_call_0_from_above
         self.name_receiver = name
@@ -197,6 +197,8 @@ class UDPClient:
         self.packet_list_length = len(packet_list)
         self.ind_next_seq = 0  # keeps track of the index in packet_list the nextseqnumber is referring to
         self.ind_base = 0  # keeps track of the index in packet_list the base is referring to
+        self.corr_ind = list(rand_indices(self.packet_list, cor_percent))
+        self.loss_ind = list(rand_indices(self.packet_list, dropped_percent))
         # UDP = User Datagram Protocol
         # By default, the socket object is in blocking mode
 
@@ -224,92 +226,51 @@ class UDPClient:
 #    def toggle_timeout(self):
 #        self.timeout = not self.timeout
 
-    def next_state(self, bdata_size, lost_bool):
-        try:
-            if (self.nextseqnum - self.base) % 256 < self.window:
-                #if self.ind_next_seq < self.packet_list_length:  # checks edge case for when window is not full
-                print("Sending ind_next_seq: ", self.ind_next_seq)
-                self.send(self.packet_list[self.ind_next_seq])
-                self.nextseqnum = inc_seq_num(self.nextseqnum)
-                self.ind_next_seq += 1
-        #        print("Sent")
+    def corr_loss_send(self, index_to_send):
+        if index_to_send in self.loss_ind and index_to_send in self.corr_ind:
+            self.loss_ind.remove(index_to_send)
+            self.corr_ind.remove(index_to_send)
+        elif index_to_send in self.loss_ind:
+            self.loss_ind.remove(index_to_send)
+        elif index_to_send in self.corr_ind:
+            self.corr_ind.remove(index_to_send)
+            self.send(bytearray(corruptor(self.packet_list[index_to_send])))
+        else:
+            self.send(self.packet_list[index_to_send])
+
+    def next_state(self, bdata_size):
+        if (self.nextseqnum - self.base) % 256 < self.window and self.ind_next_seq < self.packet_list_length:
+            print("Sending ind_next_seq: ", self.ind_next_seq)
+            self.corr_loss_send(self.ind_next_seq)
+            self.nextseqnum = inc_seq_num(self.nextseqnum)
+            self.ind_next_seq += 1
+    #        print("Sent")
+        else:
+            received_msg = self.receive(bdata_size)
+            if received_msg == "TimeoutError":
+                print("Timeout: Sending up to nextseqnum starting with: ", self.ind_base)
+                for i in range(0, (self.nextseqnum - self.base) % 256):
+                    if self.ind_base + i < self.packet_list_length:
+                        self.corr_loss_send(self.ind_base + i)
+                        print(self.ind_base+i, self.ind_next_seq)
             else:
-                received_msg = self.receive(bdata_size)
-                if received_msg == "TimeoutError":
-                    print("Timeout: Sending up to nextseqnum starting with: ", self.ind_base)
-                    for i in range(0, (self.nextseqnum - self.base) % 256):
-                        self.send(self.packet_list[self.ind_base + i])
-                        print(self.ind_base, self.ind_next_seq)
-                else:
-                    csum, ack_response, seq_response = split_ack_packet(received_msg)
-                    cs_packet = bytearray()
-                    cs_packet.append(ack_response)
-                    cs_packet.append(seq_response)
-                    new_checksum = checksum(cs_packet)
-                    # print("Received something")
-                    #print("seq_response:", seq_response)
-                    if not is_corrupt(csum, new_checksum):
-                        # recalculating the new absolute index in the array of packets for the base
-                        # The difference between the seq_response and the base value, wrapped around
-                        # Then add 1 to get to the next unacknowledged packet number
-                        # Then add that difference to the ind_base
+                csum, ack_response, seq_response = split_ack_packet(received_msg)
+                cs_packet = bytearray()
+                cs_packet.append(ack_response)
+                cs_packet.append(seq_response)
+                new_checksum = checksum(cs_packet)
+                # print("Received something")
+                #print("seq_response:", seq_response)
+                if not is_corrupt(csum, new_checksum):
+                    # recalculating the new absolute index in the array of packets for the base
+                    # The difference between the seq_response and the base value, wrapped around
+                    # Then add 1 to get to the next unacknowledged packet number
+                    # Then add that difference to the ind_base
 
-                        self.ind_base += (seq_response - self.base + 1) % 256
-                        self.base = inc_seq_num(seq_response)
-                        print("self.base: ", self.base)
-                        # print("incremented base")
-        except IndexError:
-            pass
-
-        # if self.state == S_Wait_for_call_0_from_above:
-        #     # send the packet out
-        #     if not lost_bool:
-        #         self.send(message)
-        #     # start_timer
-        #     return S_Wait_for_ACK_0
-        # elif self.state == S_Wait_for_ACK_0:
-        #     received_msg = self.receive(bdata_size)
-        #     if received_msg == "TimeoutError":
-        #         if not lost_bool:
-        #             self.send(message)
-        #         return S_Wait_for_ACK_0
-        #     csum, ack_response, seq_response = split_ack_packet(received_msg)
-        #     cs_packet = bytearray()
-        #     cs_packet.append(ack_response)
-        #     cs_packet.append(seq_response)
-        #     new_checksum = checksum(cs_packet)
-        #     if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_0):
-        #         # stop_timer
-        #         # code for stopping the timer goes here
-        #         return S_Wait_for_call_1_from_above
-        #     else:
-        #         # do NOT send the message when timer implemented, do nothing but return state instead
-        #         return S_Wait_for_ACK_0
-        # elif self.state == S_Wait_for_call_1_from_above:
-        #     if not lost_bool:
-        #         self.send(message)
-        #     # start_timer
-        #     # code for starting timer goes here
-        #     return S_Wait_for_ACK_1
-        # elif self.state == S_Wait_for_ACK_1:
-        #     received_msg = self.receive(bdata_size)
-        #     if received_msg == "TimeoutError":
-        #         if not lost_bool:
-        #             self.send(message)
-        #         return S_Wait_for_ACK_1
-        #
-        #     csum, ack_response, seq_response = split_ack_packet(received_msg)
-        #     cs_packet = bytearray()
-        #     cs_packet.append(ack_response)
-        #     cs_packet.append(seq_response)
-        #     new_checksum = checksum(cs_packet)
-        #     if not is_corrupt(csum, new_checksum) and is_ack(ack_response, seq_response, SEQ_1):
-        #         return S_Wait_for_call_0_from_above
-        #     else:
-        #         # do NOT send the message when timer implemented, do nothing instead
-        #         return S_Wait_for_ACK_1
-        # else:  # error state, if state == 10, this should be an error
-        #     return 10
+                    self.ind_base += (seq_response - self.base + 1) % 256
+                    self.base = inc_seq_num(seq_response)
+                    print("self.indbase: ", self.ind_base)
+                    # print("incremented base")
 
 
 # Run the program from here
@@ -335,24 +296,26 @@ if __name__ == '__main__':
     packets = Make_Packet("Lavender.jpg", 1024)
 
     # instantiate the client
-    client = UDPClient(name_receiver, port_receiver, time_of_timeout_s, N_w, packets)
-
+    client = UDPClient(name_receiver, port_receiver, time_of_timeout_s, N_w, packets, cor_percent, dropped_percent)
+    print(client.loss_ind)
+    print("++++++++++++++++++++++++++++++++++++++++++++++++")
+    print(client.corr_ind)
     #Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
     #the packet list that will be corrupted
-    cor_ind = rand_indices(packets, cor_percent)
-    loss_ind = rand_indices(packets, dropped_percent)
-
-    # print(cor_ind)
-    # print(len(cor_ind))
-
-    print(loss_ind)
-    print(len(loss_ind))
+    # cor_ind = rand_indices(packets, cor_percent)
+    # loss_ind = rand_indices(packets, dropped_percent)
+    #
+    # # print(cor_ind)
+    # # print(len(cor_ind))
+    #
+    # print(loss_ind)
+    # print(len(loss_ind))
 
     packet_index = 0
     tick = time.perf_counter_ns()
     # In Loop will handle the application layer, in state machine will handle transport layer
     # print(len(packets))
-    while client.ind_next_seq < len(packets):
+    while client.ind_base < len(packets):
         # print(len(packets))
         lost_bool = False
         # packet = packets[packet_index]
@@ -365,7 +328,7 @@ if __name__ == '__main__':
         #     lost_bool = True
         #     loss_ind = np.delete(loss_ind, 0)
 
-        client.next_state(4, lost_bool)
+        client.next_state(4)
 
     tock = time.perf_counter_ns()
     delt = tock-tick

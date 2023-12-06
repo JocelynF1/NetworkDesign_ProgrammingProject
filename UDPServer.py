@@ -189,7 +189,14 @@ class UDPServer:
 
             self.expectedseqnum = inc_seq_num(self.expectedseqnum)
 
-        self.socket.sendto(self.sndpkt, client_address)
+        corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
+        if corrupted == 1:  # corrupt the ack
+            self.num_corrupt_acks += 1
+            # print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
+            ack_msg = bytearray(corruptor(self.sndpkt))
+        lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
+        if lost == 0:
+            self.socket.sendto(self.sndpkt, client_address)
         print(self.sndpkt)
 
 
@@ -213,9 +220,9 @@ if __name__ == '__main__':
     buffer_size = 1028
     # Receives packets from client with a message buffer size on each packet as 2048 Bytes
 
-    receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
+    # receiver_state = server.next_state(buffer_size, cor_prob, loss_prob)
 
-    while server.expectedseqnum == 0:  # we must receive the first packet successfully to move on
+    while server.expectedseqnum == 1:  # we must receive the first packet successfully to move on
         server.next_state(buffer_size, cor_prob, loss_prob)
         print("This should only print once when there is no loss or corruption")
 
