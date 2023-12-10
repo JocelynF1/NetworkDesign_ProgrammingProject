@@ -10,11 +10,6 @@ import time
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
-# states
-S_Wait_for_call_0_from_above = 0
-S_Wait_for_ACK_0 = 1
-S_Wait_for_call_1_from_above = 2
-S_Wait_for_ACK_1 = 3
 
 # structure of message from sender:
 # 16-bit checksum, 8-bit ACK, 8-bit SEQ, N-byte data
@@ -33,6 +28,7 @@ def inc_seq_num(seq_num):
     seq_num = (seq_num + 1) % 256
     return seq_num
 
+
 # Make_Packet
 # Input: file_name: string representing the path to the file to read from
 # Input: packet_size: integer representing the number of Bytes in a packet
@@ -45,7 +41,7 @@ def Make_Packet(file_name, data_size):
 
     packet_list = []
 
-    # first packet is the number of packets being sent, this is setting up the second packet sent, so SEQ_1 is used
+    # first packet is the number of packets being sent, this is setting up the second packet sent, so seq=2 is used
     seq_to_send = 2
     packet = bytearray()
 
@@ -104,10 +100,6 @@ def Make_Packet(file_name, data_size):
     packet.append(1)
     packet.extend(data)
 
-    # print(packet)
-    # print(packet_list[0])
-
-    # print(split_packet(packet))
     packet_list.insert(0, packet)
 
     print("Packets Made. Number of packets: ", len(packet_list), "file position: ", f.tell())
@@ -116,13 +108,9 @@ def Make_Packet(file_name, data_size):
     return packet_list
 def corruptor(byte_object):
     cor_byte_object = [0]*len(byte_object)
-    #print(len(cor_packet))
-    #Function takes in the packet list and will perform a randomized corruption on a certain percetage of packets
+    # Function takes in the packet list and will perform a randomized corruption on a certain percetage of packets
     for j in range(len(byte_object)):
         cor_byte_object[j] = ~byte_object[j] & 255
-     #  print("Corrupted Packets: ",bin(~packet[j]&255))
-    #print("corrupt packet")
-    #cor_packet=packet
     return cor_byte_object
 
 
@@ -186,7 +174,6 @@ class UDPClient:
     # Initializes the UDP Client with name and port
     def __init__(self, name, port, tt, window, packet_list, cor_percent, dropped_percent):
         self.time_timeout = tt
-        self.state = S_Wait_for_call_0_from_above
         self.name_receiver = name
         self.port_receiver = port
         self.socket = socket(AF_INET, SOCK_DGRAM)  # AF_INET = using IPv4, SOCK_DGRAM = Datagram,
@@ -259,8 +246,6 @@ class UDPClient:
                 cs_packet.append(ack_response)
                 cs_packet.append(seq_response)
                 new_checksum = checksum(cs_packet)
-                # print("Received something")
-                #print("seq_response:", seq_response)
                 if not is_corrupt(csum, new_checksum):
                     # recalculating the new absolute index in the array of packets for the base
                     # The difference between the seq_response and the base value, wrapped around
@@ -286,13 +271,8 @@ if __name__ == '__main__':
     # # This is the receiver port, so whichever system is designated as a receiver will use this to listen
     #
     time_of_timeout_s = time_of_timeout_ms/1000
-    #Add as a command option, but hard coding for now:
-    #cor_percent = 5
 
-
-
-
-    #make packets
+    # make packets
     packets = Make_Packet("Lavender.jpg", 1024)
 
     # instantiate the client
@@ -300,34 +280,14 @@ if __name__ == '__main__':
     print(client.loss_ind)
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print(client.corr_ind)
-    #Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
-    #the packet list that will be corrupted
-    # cor_ind = rand_indices(packets, cor_percent)
-    # loss_ind = rand_indices(packets, dropped_percent)
-    #
-    # # print(cor_ind)
-    # # print(len(cor_ind))
-    #
-    # print(loss_ind)
-    # print(len(loss_ind))
+
+    # Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
+    # the packet list that will be corrupted
 
     packet_index = 0
     tick = time.perf_counter_ns()
-    # In Loop will handle the application layer, in state machine will handle transport layer
-    # print(len(packets))
-    while client.ind_base < len(packets):
-        # print(len(packets))
-        lost_bool = False
-        # packet = packets[packet_index]
-        # if packet_index in cor_ind:
-        #     #print("Corrupt Packet", packet_index)
-        #     packet = bytearray(corruptor(packets[packet_index]))
-        #     cor_ind = np.delete(cor_ind, 0)
-        # if packet_index in loss_ind:
-        #     #print("Corrupt Packet", packet_index)
-        #     lost_bool = True
-        #     loss_ind = np.delete(loss_ind, 0)
 
+    while client.ind_base < len(packets):
         client.next_state(4)
 
     tock = time.perf_counter_ns()

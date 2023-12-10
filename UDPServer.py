@@ -12,9 +12,6 @@ from math import floor
 
 # documentation link: https://docs.python.org/3/library/socket.html
 
-# states
-S_Wait_for_0_from_below = 0
-S_Wait_for_1_from_below = 1
 
 # structure of message from receiver:
 # 16-bit checksum, 8-bit ACK, 8-bit SEQ
@@ -112,9 +109,6 @@ def inc_seq_num(seq_num):
 class UDPServer:
     # Initializes the UDP Server with name and port
     def __init__(self, name, port):
-        self.state = S_Wait_for_0_from_below
-
-        self.oncethru = 0
         self.name_receiver = name
         self.port_receiver = port
         self.socket = socket(AF_INET, SOCK_DGRAM)  # AF_INET = using IPv4, SOCK_DGRAM = Datagram,
