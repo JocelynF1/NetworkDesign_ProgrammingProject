@@ -164,11 +164,6 @@ def is_corrupt(received_checksum, new_checksum):
 
 # Takes a list of packets and a percentage
 # returns a random percentage-sized selection of indices from the list of packets,
-def rand_indices(pack_list, percent_ind):
-    num_pack = int(floor(len(pack_list) * (percent_ind / 100)))
-    ind = np.random.choice(len(pack_list), size=num_pack, replace=False, )
-    ind.sort()
-    return ind
 
 class UDPClient:
     # Initializes the UDP Client with name and port
@@ -184,8 +179,8 @@ class UDPClient:
         self.packet_list_length = len(packet_list)
         self.ind_next_seq = 0  # keeps track of the index in packet_list the nextseqnumber is referring to
         self.ind_base = 0  # keeps track of the index in packet_list the base is referring to
-        self.corr_prob= cor_percent / 100 # list(rand_indices(self.packet_list, cor_percent))
-        self.loss_prob = dropped_percent / 100 # list(rand_indices(self.packet_list, dropped_percent))
+        self.corr_prob= cor_percent / 100
+        self.loss_prob = dropped_percent / 100
         # UDP = User Datagram Protocol
         # By default, the socket object is in blocking mode
 
@@ -210,20 +205,9 @@ class UDPClient:
 
         return message
 
-#    def toggle_timeout(self):
-#        self.timeout = not self.timeout
 
     def corr_loss_send(self, index_to_send):
-        # if index_to_send in self.loss_ind and index_to_send in self.corr_ind:
-        #     self.loss_ind.remove(index_to_send)
-        #     self.corr_ind.remove(index_to_send)
-        # elif index_to_send in self.loss_ind:
-        #     self.loss_ind.remove(index_to_send)
-        # elif index_to_send in self.corr_ind:
-        #     self.corr_ind.remove(index_to_send)
-        #     self.send(bytearray(corruptor(self.packet_list[index_to_send])))
-        # else:
-        #     self.send(self.packet_list[index_to_send])
+
         corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - self.corr_prob, self.corr_prob])
         if corrupted == 1:  # corrupt the data packet
             self.send(bytearray(corruptor(self.packet_list[index_to_send])))
