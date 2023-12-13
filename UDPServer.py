@@ -191,7 +191,7 @@ class UDPServer:
         lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
         if lost == 0:
             self.socket.sendto(self.sndpkt, client_address)
-        print(self.sndpkt)
+        # print(self.sndpkt)
 
 
 
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     data = server.data_buffer.pop(0)
     # print(data)
     num_packets = int.from_bytes(data)
-    print(num_packets)
+    #print(num_packets)
 
     packet_index = 0
     tick = time.perf_counter_ns()
@@ -232,7 +232,7 @@ if __name__ == '__main__':
         prev_seq_num = server.expectedseqnum
         server.next_state(buffer_size, cor_prob, loss_prob)
         if server.expectedseqnum != prev_seq_num:
-            print("packet_index: ", packet_index)
+            #print("packet_index: ", packet_index)
             packet_index += 1
 
 

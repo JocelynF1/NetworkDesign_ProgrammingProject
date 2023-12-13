@@ -184,8 +184,8 @@ class UDPClient:
         self.packet_list_length = len(packet_list)
         self.ind_next_seq = 0  # keeps track of the index in packet_list the nextseqnumber is referring to
         self.ind_base = 0  # keeps track of the index in packet_list the base is referring to
-        self.corr_ind = list(rand_indices(self.packet_list, cor_percent))
-        self.loss_ind = list(rand_indices(self.packet_list, dropped_percent))
+        self.corr_prob= cor_percent / 100 # list(rand_indices(self.packet_list, cor_percent))
+        self.loss_prob = dropped_percent / 100 # list(rand_indices(self.packet_list, dropped_percent))
         # UDP = User Datagram Protocol
         # By default, the socket object is in blocking mode
 
@@ -214,20 +214,26 @@ class UDPClient:
 #        self.timeout = not self.timeout
 
     def corr_loss_send(self, index_to_send):
-        if index_to_send in self.loss_ind and index_to_send in self.corr_ind:
-            self.loss_ind.remove(index_to_send)
-            self.corr_ind.remove(index_to_send)
-        elif index_to_send in self.loss_ind:
-            self.loss_ind.remove(index_to_send)
-        elif index_to_send in self.corr_ind:
-            self.corr_ind.remove(index_to_send)
+        # if index_to_send in self.loss_ind and index_to_send in self.corr_ind:
+        #     self.loss_ind.remove(index_to_send)
+        #     self.corr_ind.remove(index_to_send)
+        # elif index_to_send in self.loss_ind:
+        #     self.loss_ind.remove(index_to_send)
+        # elif index_to_send in self.corr_ind:
+        #     self.corr_ind.remove(index_to_send)
+        #     self.send(bytearray(corruptor(self.packet_list[index_to_send])))
+        # else:
+        #     self.send(self.packet_list[index_to_send])
+        corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - self.corr_prob, self.corr_prob])
+        if corrupted == 1:  # corrupt the data packet
             self.send(bytearray(corruptor(self.packet_list[index_to_send])))
-        else:
+        lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - self.loss_prob, self.loss_prob])
+        if lost == 0:
             self.send(self.packet_list[index_to_send])
 
     def next_state(self, bdata_size):
         if (self.nextseqnum - self.base) % 256 < self.window and self.ind_next_seq < self.packet_list_length:
-            print("Sending ind_next_seq: ", self.ind_next_seq)
+            # print("Sending ind_next_seq: ", self.ind_next_seq)
             self.corr_loss_send(self.ind_next_seq)
             self.nextseqnum = inc_seq_num(self.nextseqnum)
             self.ind_next_seq += 1
@@ -235,11 +241,11 @@ class UDPClient:
         else:
             received_msg = self.receive(bdata_size)
             if received_msg == "TimeoutError":
-                print("Timeout: Sending up to nextseqnum starting with: ", self.ind_base)
+                # print("Timeout: Sending up to nextseqnum starting with: ", self.ind_base)
                 for i in range(0, (self.nextseqnum - self.base) % 256):
                     if self.ind_base + i < self.packet_list_length:
                         self.corr_loss_send(self.ind_base + i)
-                        print(self.ind_base+i, self.ind_next_seq)
+                        # print(self.ind_base+i, self.ind_next_seq)
             else:
                 csum, ack_response, seq_response = split_ack_packet(received_msg)
                 cs_packet = bytearray()
@@ -254,7 +260,7 @@ class UDPClient:
 
                     self.ind_base += (seq_response - self.base + 1) % 256
                     self.base = inc_seq_num(seq_response)
-                    print("self.indbase: ", self.ind_base)
+                    # print("self.indbase: ", self.ind_base)
                     # print("incremented base")
 
 
@@ -277,9 +283,6 @@ if __name__ == '__main__':
 
     # instantiate the client
     client = UDPClient(name_receiver, port_receiver, time_of_timeout_s, N_w, packets, cor_percent, dropped_percent)
-    print(client.loss_ind)
-    print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    print(client.corr_ind)
 
     # Calculate the number of packets needed to be corrupted, a uniform distribution is used to select which index in
     # the packet list that will be corrupted
