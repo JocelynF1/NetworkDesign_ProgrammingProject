@@ -1,7 +1,7 @@
 EECE 5830 Network Design Principles, Protocols and Applications
 Section 201
-10/30/2023
-Title: Phase 3
+12/13/2023
+Title: Phase 5
 Michael Burton, Jocelyn Frechette, Jesse Haynes-Lewis
 Environment
 OS: Windows
@@ -17,6 +17,8 @@ Files Included in Submission:
 
    -To include data packet error (i.e. Packet Corruption), input an integer value when prompted indicating the percentage of packets that will be initially sent corrupt.
    -To include data packet loss, input an integer value when prompted indicating the percentage of packets that will be lost during transmission from Client to the Receiver.
+   -To include timeout, input an integer in whole milliseconds
+   -To include window size, input an integer
     
 2. UDPServer.py
     
