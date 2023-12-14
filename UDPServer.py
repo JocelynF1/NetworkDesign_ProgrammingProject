@@ -51,7 +51,6 @@ def corruptor(byte_object):
         cor_byte_object[j] = ~byte_object[j] & 255
      #  print("Corrupted Packets: ",bin(~packet[j]&255))
     #print("corrupt packet")
-    #cor_packet=packet
     return cor_byte_object
 
 
@@ -101,7 +100,7 @@ def rand_indices(pack_list, percent_ind):
     ind.sort()
     return ind
 
-
+# increment the sequence number, wrapping around 255->0
 def inc_seq_num(seq_num):
     seq_num = (seq_num + 1) % 256
     return seq_num
@@ -138,7 +137,6 @@ class UDPServer:
         # print(self.sndpkt)
 
     def send(self, message):
-        #self.socket.sendto(message, (self.name_receiver, self.port_receiver))
         # client sends message (converted to Bytes) to server
         pass
 
@@ -184,12 +182,12 @@ class UDPServer:
             self.expectedseqnum = inc_seq_num(self.expectedseqnum)
 
         corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - corrupt_level, corrupt_level])
-        if corrupted == 1:  # corrupt the ack
-            self.num_corrupt_acks += 1
-            # print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
-            ack_msg = bytearray(corruptor(self.sndpkt))
         lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - lost_level, lost_level])
-        if lost == 0:
+        if lost == 0 and corrupted == 1:  # corrupt the ack
+            self.num_corrupt_acks += 1
+            print("Number of Corrupt acks so far: ",self.num_corrupt_acks)
+            self.socket.sendto(bytearray(corruptor(self.sndpkt)), client_address)
+        if lost == 0 and corrupted == 0:
             self.socket.sendto(self.sndpkt, client_address)
         # print(self.sndpkt)
 

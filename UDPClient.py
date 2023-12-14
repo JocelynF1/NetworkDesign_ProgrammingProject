@@ -209,10 +209,10 @@ class UDPClient:
     def corr_loss_send(self, index_to_send):
 
         corrupted = np.random.choice([0, 1], size=1, replace=True, p=[1 - self.corr_prob, self.corr_prob])
-        if corrupted == 1:  # corrupt the data packet
-            self.send(bytearray(corruptor(self.packet_list[index_to_send])))
         lost = np.random.choice([0, 1], size=1, replace=True, p=[1 - self.loss_prob, self.loss_prob])
-        if lost == 0:
+        if lost == 0 and corrupted == 1:  # corrupt the data packet
+            self.send(bytearray(corruptor(self.packet_list[index_to_send])))
+        if lost == 0 and corrupted == 0:
             self.send(self.packet_list[index_to_send])
 
     def next_state(self, bdata_size):
@@ -225,11 +225,11 @@ class UDPClient:
         else:
             received_msg = self.receive(bdata_size)
             if received_msg == "TimeoutError":
-                # print("Timeout: Sending up to nextseqnum starting with: ", self.ind_base)
+                print("Timeout: Sending up to nextseqnum starting with: ", self.ind_base)
                 for i in range(0, (self.nextseqnum - self.base) % 256):
                     if self.ind_base + i < self.packet_list_length:
                         self.corr_loss_send(self.ind_base + i)
-                        # print(self.ind_base+i, self.ind_next_seq)
+                        print(self.ind_base+i, self.ind_next_seq)
             else:
                 csum, ack_response, seq_response = split_ack_packet(received_msg)
                 cs_packet = bytearray()
